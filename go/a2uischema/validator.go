@@ -8,7 +8,6 @@ import (
 	"slices"
 
 	"github.com/a2ui-project/a2ui/go/a2ui/v09"
-	a2uiv10 "github.com/a2ui-project/a2ui/go/a2ui/v10"
 )
 
 var (
@@ -76,13 +75,6 @@ func (v *Validator) ParseMessages(data []byte) ([]v09.ServerMessage, error) {
 
 // ValidateJSON parses and validates a raw JSON payload.
 func (v *Validator) ValidateJSON(data []byte) error {
-	if v.catalog != nil && v.catalog.Version == Version1 {
-		msgs, err := v.parseMessagesV1(data)
-		if err != nil {
-			return err
-		}
-		return v.validateMessagesV1(msgs)
-	}
 	msgs, err := v.ParseMessages(data)
 	if err != nil {
 		return err
@@ -111,8 +103,6 @@ func (v *Validator) ValidateVersionMessages(msgs any) error {
 	switch msgs := msgs.(type) {
 	case []v09.ServerMessage:
 		return v.ValidateMessages(msgs)
-	case []a2uiv10.AgentMessage:
-		return v.validateMessagesV1(msgs)
 	default:
 		return fmt.Errorf("schema: unsupported messages type %T", msgs)
 	}

@@ -3,13 +3,10 @@ package a2uischema
 import (
 	"encoding/json"
 	"errors"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/a2ui-project/a2ui/go/a2ui/v09"
-	a2uiv10 "github.com/a2ui-project/a2ui/go/a2ui/v10"
+	v09 "github.com/a2ui-project/a2ui/go/a2ui/v09"
 	"github.com/a2ui-project/a2ui/go/a2uibuild"
 	"github.com/a2ui-project/a2ui/go/a2uistream"
 )
@@ -32,30 +29,6 @@ func TestSchemaManagerGenerateSystemPrompt(t *testing.T) {
 	}
 	if !strings.Contains(prompt, "catalogs/basic/catalog.json") {
 		t.Fatal("expected basic catalog schema in prompt")
-	}
-}
-
-func TestSchemaManagerGenerateSystemPromptVersioned(t *testing.T) {
-	basic, err := BasicCatalogConfig(Version1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager, err := NewSchemaManager(Version1, []CatalogConfig{basic}, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	caps := &a2uiv10.RendererCapabilities{V1: &a2uiv10.RendererCapabilitiesV1{
-		SupportedCatalogIDs: []string{"https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"},
-	}}
-	prompt, err := manager.GenerateSystemPrompt("role", "", "", caps, nil, nil, true, false, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(prompt, A2UISchemaBlockStart) {
-		t.Fatal("expected schema block")
-	}
-	if !strings.Contains(prompt, "v1_0/catalogs/basic/catalog.json") {
-		t.Fatal("expected v1.0 basic catalog schema in prompt")
 	}
 }
 
@@ -100,39 +73,6 @@ func TestValidatorAcceptsValidSurfaceMessages(t *testing.T) {
 		Add(a2uibuild.Column("root", a2uibuild.Children("greeting"))).
 		Add(a2uibuild.Text("greeting", v09.StringLiteral("Hello, world!")))
 	if err := validator.ValidateMessages(surface.Messages()); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestValidatorAcceptsV1Examples(t *testing.T) {
-	validator := mustBasicValidatorV1(t)
-	paths, err := filepath.Glob("testdata/v1_0/basic/examples/*.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(paths) == 0 {
-		t.Fatal("no v1.0 examples found")
-	}
-	for _, path := range paths {
-		t.Run(filepath.Base(path), func(t *testing.T) {
-			data, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := validator.ValidateExample(data); err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-}
-
-func TestValidatorAcceptsV1AgentFunctionResponseNull(t *testing.T) {
-	validator := mustBasicValidatorV1(t)
-	msg := a2uiv10.AgentMessage{
-		Version:               a2uiv10.Version,
-		AgentFunctionResponse: ptr(a2uiv10.FunctionResponseValue("call-1", nil)),
-	}
-	if err := validator.ValidateVersionMessages([]a2uiv10.AgentMessage{msg}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -255,23 +195,6 @@ func mustBasicValidator(t *testing.T) *Validator {
 	return catalog.Validator()
 }
 
-func mustBasicValidatorV1(t *testing.T) *Validator {
-	t.Helper()
-	basic, err := BasicCatalogConfig(Version1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager, err := NewSchemaManager(Version1, []CatalogConfig{basic}, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	catalog, err := manager.SelectedCatalog(nil, nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return catalog.Validator()
-}
-
 func mustBasicValidatorV091(t *testing.T) *Validator {
 	t.Helper()
 	basic, err := BasicCatalogConfig(Version091)
@@ -304,33 +227,5 @@ func assertValidationError(t *testing.T, err error, code ValidationCode, compone
 	}
 	if component != "" && validationErr.Component != component {
 		t.Fatalf("ValidationError.Component = %q, want %q", validationErr.Component, component)
-	}
-}
-
-func TestValidatorV1ComponentRefs(t *testing.T) {
-	validator := mustBasicValidatorV1(t)
-	const (
-		create  = `{"version":"v1.0","createSurface":{"surfaceId":"s1"}}`
-		root    = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Card","child":"body"}]}}`
-		body    = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"body","component":"Text","text":"hi"}]}}`
-		deleteS = `{"version":"v1.0","deleteSurface":{"surfaceId":"s1"}}`
-	)
-	tests := []struct {
-		name    string
-		msgs    []string
-		wantErr bool
-	}{
-		{"forward_ref_resolved", []string{create, root, body}, false},
-		{"forward_ref_unresolved", []string{create, root}, true},
-		{"deleted_surface", []string{create, root, deleteS}, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			data := "[" + strings.Join(tt.msgs, ",") + "]"
-			err := validator.ValidateJSON([]byte(data))
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("ValidateJSON() = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
 	}
 }

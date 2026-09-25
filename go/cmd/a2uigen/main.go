@@ -45,10 +45,10 @@ func main() {
 	sdk := flag.Bool("sdk", false, "generate the complete Go SDK, including static support files")
 	specRoot := flag.String("spec-root", "", "A2UI specification root for -sdk mode (default: inferred from generator checkout)")
 	sdkRoot := flag.String("sdk-root", "", "Go SDK source root for -sdk mode (default: inferred from generator)")
-	stable := flag.Bool("stable", false, "also generate a2ui/a2ui.go alias file")
+	bridge := flag.String("bridge", "", "generate the root a2ui package as deprecated forwarders to this version package (e.g. v09)")
 	builders := flag.Bool("builders", false, "also generate the a2uibuild builders for this package")
 	flag.Parse()
-	if *out == "" || (!*sdk && *schemas == "") {
+	if *out == "" || (!*sdk && *schemas == "" && *bridge == "") {
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -63,12 +63,19 @@ func main() {
 		return
 	}
 
-	if err := generateFromSchemas(*schemas, *catalog, *out, *pkg, *module, *a2uiDir, *buildDir, *a2uiImport, *stable, *builders); err != nil {
-		log.Fatal(err)
+	if *schemas != "" {
+		if err := generateFromSchemas(*schemas, *catalog, *out, *pkg, *module, *a2uiDir, *buildDir, *a2uiImport, *builders); err != nil {
+			log.Fatal(err)
+		}
+	}
+	if *bridge != "" {
+		if err := generateBridge(*out, *module, *a2uiDir, *buildDir, *a2uiImport, *bridge); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
-func generateFromSchemas(schemas, catalogPath, out, pkg, module, a2uiDir, buildDir, a2uiImport string, stable, builders bool) error {
+func generateFromSchemas(schemas, catalogPath, out, pkg, module, a2uiDir, buildDir, a2uiImport string, builders bool) error {
 	if catalogPath == "" {
 		path, err := findBasicCatalog(schemas)
 		if err != nil {
@@ -105,7 +112,6 @@ func generateFromSchemas(schemas, catalogPath, out, pkg, module, a2uiDir, buildD
 	data.Pkg = pkg
 	data.A2UIImport = outConfig.A2UIImport
 	data.VersionImport = outConfig.VersionImport
-	data.Stable = stable
 
 	ar := txtar.Parse(templateData)
 
@@ -122,7 +128,7 @@ func generateFromSchemas(schemas, catalogPath, out, pkg, module, a2uiDir, buildD
 	for _, f := range ar.Files {
 		name := strings.TrimSpace(f.Name)
 
-		if name == "a2ui.go" && !stable || strings.Contains(name, "builders") && !builders {
+		if strings.Contains(name, "builders") && !builders {
 			continue
 		}
 
@@ -141,10 +147,7 @@ func generateFromSchemas(schemas, catalogPath, out, pkg, module, a2uiDir, buildD
 
 		// Determine output directory.
 		outDir := filepath.Join(out, outConfig.A2UIDir)
-		if name == "a2ui.go" {
-			// Alias file always goes to the stable a2ui package.
-			outDir = filepath.Join(out, outConfig.A2UIDir)
-		} else if strings.Contains(name, "builders") {
+		if strings.Contains(name, "builders") {
 			outDir = filepath.Join(out, outConfig.A2UIBuildDir)
 		} else if pkg != "a2ui" {
 			// Type files go into {a2uiDir}/{pkg}/.
@@ -309,7 +312,6 @@ type TemplateData struct {
 	Pkg           string // Go package name for generated types (default "a2ui")
 	A2UIImport    string // import path for the stable a2ui package
 	VersionImport string // import path for the generated version package
-	Stable        bool   // generate alias file
 }
 
 type outputConfig struct {
@@ -507,10 +509,17 @@ func generateSDK(out, module, a2uiDir, buildDir, a2uiImport, specRoot, sdkRoot s
 			a2uiDir,
 			buildDir,
 			a2uiImport,
-			v.stable,
 			v.builders,
 		); err != nil {
 			return err
+		}
+	}
+
+	for _, v := range sdkVersions {
+		if v.bridge {
+			if err := generateBridge(out, module, a2uiDir, buildDir, a2uiImport, v.pkg); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -528,7 +537,7 @@ type sdkVersion struct {
 	pkg      string // Go package name
 	catalog  string // basic catalog
 	examples string // basic catalog examples
-	stable   bool   // re-exported by the a2ui package
+	bridge   bool   // forwarded to by the root a2ui package
 	builders bool   // source of the a2uibuild builders
 }
 
@@ -538,7 +547,7 @@ var sdkVersions = []sdkVersion{
 		pkg:      "v09",
 		catalog:  "specification/v0_9/catalogs/basic/catalog.json",
 		examples: "specification/v0_9/catalogs/basic/examples",
-		stable:   true,
+		bridge:   true,
 		builders: true,
 	},
 	{
@@ -547,17 +556,11 @@ var sdkVersions = []sdkVersion{
 		catalog:  "specification/v0_9_1/catalogs/basic/catalog.json",
 		examples: "specification/v0_9_1/catalogs/basic/examples",
 	},
-	{
-		spec:     "v1_0",
-		pkg:      "v10",
-		catalog:  "catalogs/basic/v1/catalog.json",
-		examples: "catalogs/basic/v1/examples",
-	},
 }
 
 // staleSDKDirs lists version packages that earlier SDKs had and that
 // -sdk mode deletes from the output.
-var staleSDKDirs = []string{"v010"}
+var staleSDKDirs = []string{"v010", "v10"}
 
 func inferSDKRoot() (string, error) {
 	_, file, _, ok := runtime.Caller(0)
@@ -584,10 +587,12 @@ func copyStaticSDK(sdkRoot, specRoot, out string, cfg outputConfig) error {
 	if err := os.MkdirAll(stableDir, 0o755); err != nil {
 		return err
 	}
-	for _, name := range []string{"doc.go", "example_test.go"} {
-		if err := copyFile(filepath.Join(sdkRoot, "a2ui", name), filepath.Join(stableDir, name)); err != nil {
-			return err
-		}
+	if err := copyFile(filepath.Join(sdkRoot, "a2ui", "doc.go"), filepath.Join(stableDir, "doc.go")); err != nil {
+		return err
+	}
+	// The root package's examples used the v0.9 API directly.
+	if err := os.Remove(filepath.Join(stableDir, "example_test.go")); err != nil && !os.IsNotExist(err) {
+		return err
 	}
 	for _, dir := range staleSDKDirs {
 		if err := os.RemoveAll(filepath.Join(stableDir, dir)); err != nil {
@@ -695,7 +700,6 @@ func rewriteSDKImports(root, modulePath, moduleRoot, sourceModule string, cfg ou
 	}
 
 	replacements := []struct{ old, new string }{
-		{sourceModule + "/a2ui/v10", cfg.A2UIImport + "/v10"},
 		{sourceModule + "/a2ui/v091", cfg.A2UIImport + "/v091"},
 		{sourceModule + "/a2ui/v09", cfg.A2UIImport + "/v09"},
 		{sourceModule + "/a2uiadk", adkImport},

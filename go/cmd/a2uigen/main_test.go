@@ -52,15 +52,15 @@ func TestResolveOutputConfigRootLayout(t *testing.T) {
 func TestResolveOutputConfigExplicitA2UIImport(t *testing.T) {
 	dir := t.TempDir()
 
-	cfg, err := resolveOutputConfig(dir, "", "generated/a2ui", "generated/a2uibuild", "example.com/custom/a2ui", "v10")
+	cfg, err := resolveOutputConfig(dir, "", "generated/a2ui", "generated/a2uibuild", "example.com/custom/a2ui", "v091")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cfg.A2UIImport != "example.com/custom/a2ui" {
 		t.Fatalf("A2UIImport = %q, want example.com/custom/a2ui", cfg.A2UIImport)
 	}
-	if cfg.VersionImport != "example.com/custom/a2ui/v10" {
-		t.Fatalf("VersionImport = %q, want example.com/custom/a2ui/v10", cfg.VersionImport)
+	if cfg.VersionImport != "example.com/custom/a2ui/v091" {
+		t.Fatalf("VersionImport = %q, want example.com/custom/a2ui/v091", cfg.VersionImport)
 	}
 }
 
@@ -89,9 +89,11 @@ func TestGenerateSDKRootLayout(t *testing.T) {
 		path string
 		want string
 	}{
-		{"a2ui.go", `import "example.com/root/v09"`},
+		{"a2ui.go", `"example.com/root/v09"`},
+		{"a2ui.go", "//go:fix inline\ntype ServerMessage = v09.ServerMessage\n"},
+		{"a2ui.go", "func And(values []v09.DynamicBoolean) v09.DynamicBoolean {\n\treturn v09.And(values)\n}"},
 		{filepath.Join("a2uibuild", "zz_builders.go"), `import "example.com/root/v09"`},
-		{filepath.Join("a2uischema", "manager.go"), `"example.com/root/v10"`},
+		{filepath.Join("a2uischema", "manager.go"), `"example.com/root/v09"`},
 	}
 	for _, check := range checks {
 		data, err := os.ReadFile(filepath.Join(dir, check.path))

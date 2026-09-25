@@ -40,8 +40,6 @@ func BasicCatalogProvider(version Version) (CatalogProvider, error) {
 		return StaticCatalogProvider{Data: basicCatalogV09}, nil
 	case Version091:
 		return StaticCatalogProvider{Data: basicCatalogV091}, nil
-	case Version1:
-		return StaticCatalogProvider{Data: basicCatalogV1}, nil
 	default:
 		return nil, fmt.Errorf("schema: unsupported version %q", version)
 	}

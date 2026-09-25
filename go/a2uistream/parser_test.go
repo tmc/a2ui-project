@@ -29,7 +29,7 @@ func TestPureText(t *testing.T) {
 	}
 }
 
-func TestV10CallRendererFunctionPayload(t *testing.T) {
+func TestV1CallRendererFunctionPayload(t *testing.T) {
 	input := `<a2ui-json>{"version":"v1.0","callRendererFunction":{"functionCallId":"call-1","callFunction":{"call":"lookup","catalogId":"https://example.com/catalog.json"}}}</a2ui-json>`
 
 	p := NewParser()
@@ -66,7 +66,7 @@ func TestV10CallRendererFunctionPayload(t *testing.T) {
 	}
 }
 
-func TestBareV10CallRendererFunctionPayload(t *testing.T) {
+func TestBareV1CallRendererFunctionPayload(t *testing.T) {
 	input := `before {"version":"v1.0","callRendererFunction":{"functionCallId":"call-1","callFunction":{"call":"lookup","catalogId":"https://example.com/catalog.json"}}} after`
 
 	p := NewParser()

@@ -2,271 +2,1115 @@
 
 package a2ui
 
-import "github.com/a2ui-project/a2ui/go/a2ui/v09"
+import (
+	"github.com/a2ui-project/a2ui/go/a2ui/v09"
+)
 
-// Version re-exports the protocol version from the active implementation.
+// Deprecated: Use [v09.ClientCapabilities]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ClientCapabilities = v09.ClientCapabilities
+
+// Deprecated: Use [v09.ClientCapabilitiesV09]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ClientCapabilitiesV09 = v09.ClientCapabilitiesV09
+
+// Deprecated: Use [v09.ServerCapabilities]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ServerCapabilities = v09.ServerCapabilities
+
+// Deprecated: Use [v09.ServerCapabilitiesV09]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ServerCapabilitiesV09 = v09.ServerCapabilitiesV09
+
+// Deprecated: Use [v09.CatalogDef]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type CatalogDef = v09.CatalogDef
+
+// Deprecated: Use [v09.FunctionDefinition]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type FunctionDefinition = v09.FunctionDefinition
+
+// Deprecated: Use [v09.ClientDataModel]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ClientDataModel = v09.ClientDataModel
+
+// Deprecated: Use [v09.DataBinding]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type DataBinding = v09.DataBinding
+
+// Deprecated: Use [v09.FunctionCall]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type FunctionCall = v09.FunctionCall
+
+// Deprecated: Use [v09.ChildList]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ChildList = v09.ChildList
+
+// Deprecated: Use [v09.ChildTemplate]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ChildTemplate = v09.ChildTemplate
+
+// Deprecated: Use [v09.CheckRule]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type CheckRule = v09.CheckRule
+
+// Deprecated: Use [v09.AccessibilityAttributes]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type AccessibilityAttributes = v09.AccessibilityAttributes
+
+// Deprecated: Use [v09.Theme]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type Theme = v09.Theme
+
+// Deprecated: Use [v09.Action]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type Action = v09.Action
+
+// Deprecated: Use [v09.EventAction]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type EventAction = v09.EventAction
+
+// Deprecated: Use [v09.IconNameOrPath]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type IconNameOrPath = v09.IconNameOrPath
+
+// Deprecated: Use [v09.Component]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type Component = v09.Component
+
+// Deprecated: Use [v09.DynamicString]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type DynamicString = v09.DynamicString
+
+// Deprecated: Use [v09.StringLiteral]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func StringLiteral(s string) v09.DynamicString {
+	return v09.StringLiteral(s)
+}
+
+// Deprecated: Use [v09.StringBinding]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func StringBinding(path string) v09.DynamicString {
+	return v09.StringBinding(path)
+}
+
+// Deprecated: Use [v09.StringFunc]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func StringFunc(call v09.FunctionCall) v09.DynamicString {
+	return v09.StringFunc(call)
+}
+
+// Deprecated: Use [v09.DynamicNumber]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type DynamicNumber = v09.DynamicNumber
+
+// Deprecated: Use [v09.NumberLiteral]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func NumberLiteral(n float64) v09.DynamicNumber {
+	return v09.NumberLiteral(n)
+}
+
+// Deprecated: Use [v09.NumberBinding]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func NumberBinding(path string) v09.DynamicNumber {
+	return v09.NumberBinding(path)
+}
+
+// Deprecated: Use [v09.NumberFunc]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func NumberFunc(call v09.FunctionCall) v09.DynamicNumber {
+	return v09.NumberFunc(call)
+}
+
+// Deprecated: Use [v09.DynamicBoolean]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type DynamicBoolean = v09.DynamicBoolean
+
+// Deprecated: Use [v09.BoolLiteral]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func BoolLiteral(b bool) v09.DynamicBoolean {
+	return v09.BoolLiteral(b)
+}
+
+// Deprecated: Use [v09.BoolBinding]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func BoolBinding(path string) v09.DynamicBoolean {
+	return v09.BoolBinding(path)
+}
+
+// Deprecated: Use [v09.BoolFunc]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func BoolFunc(call v09.FunctionCall) v09.DynamicBoolean {
+	return v09.BoolFunc(call)
+}
+
+// Deprecated: Use [v09.DynamicStringList]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type DynamicStringList = v09.DynamicStringList
+
+// Deprecated: Use [v09.StringListLiteral]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func StringListLiteral(ss []string) v09.DynamicStringList {
+	return v09.StringListLiteral(ss)
+}
+
+// Deprecated: Use [v09.StringListBinding]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func StringListBinding(path string) v09.DynamicStringList {
+	return v09.StringListBinding(path)
+}
+
+// Deprecated: Use [v09.StringListFunc]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func StringListFunc(call v09.FunctionCall) v09.DynamicStringList {
+	return v09.StringListFunc(call)
+}
+
+// Deprecated: Use [v09.DynamicValue]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type DynamicValue = v09.DynamicValue
+
+// Deprecated: Use [v09.ValueString]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func ValueString(s string) v09.DynamicValue {
+	return v09.ValueString(s)
+}
+
+// Deprecated: Use [v09.ValueNumber]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func ValueNumber(n float64) v09.DynamicValue {
+	return v09.ValueNumber(n)
+}
+
+// Deprecated: Use [v09.ValueBool]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func ValueBool(b bool) v09.DynamicValue {
+	return v09.ValueBool(b)
+}
+
+// Deprecated: Use [v09.ValueArray]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func ValueArray(a []any) v09.DynamicValue {
+	return v09.ValueArray(a)
+}
+
+// Deprecated: Use [v09.ValueBinding]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func ValueBinding(path string) v09.DynamicValue {
+	return v09.ValueBinding(path)
+}
+
+// Deprecated: Use [v09.ValueFunc]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func ValueFunc(call v09.FunctionCall) v09.DynamicValue {
+	return v09.ValueFunc(call)
+}
+
+// Deprecated: Use [v09.Version]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
 const Version = v09.Version
 
-// Hand-written message types.
-type (
-	ServerMessage = v09.ServerMessage
-	ClientMessage = v09.ClientMessage
-)
+// Deprecated: Use [v09.ServerMessage]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ServerMessage = v09.ServerMessage
 
-// Hand-written server-to-client message types.
-type (
-	CreateSurface    = v09.CreateSurface
-	UpdateComponents = v09.UpdateComponents
-	UpdateDataModel  = v09.UpdateDataModel
-	DeleteSurface    = v09.DeleteSurface
-)
+// Deprecated: Use [v09.CreateSurface]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type CreateSurface = v09.CreateSurface
 
-// Hand-written client-to-server message types.
-type (
-	ActionEvent = v09.ActionEvent
-	ClientError = v09.ClientError
-)
+// Deprecated: Use [v09.UpdateComponents]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type UpdateComponents = v09.UpdateComponents
 
-// Hand-written common types.
-type (
-	Component               = v09.Component
-	DynamicString           = v09.DynamicString
-	DynamicNumber           = v09.DynamicNumber
-	DynamicBoolean          = v09.DynamicBoolean
-	DynamicStringList       = v09.DynamicStringList
-	DynamicValue            = v09.DynamicValue
-	DataBinding             = v09.DataBinding
-	FunctionCall            = v09.FunctionCall
-	ChildList               = v09.ChildList
-	ChildTemplate           = v09.ChildTemplate
-	CheckRule               = v09.CheckRule
-	AccessibilityAttributes = v09.AccessibilityAttributes
-	Theme                   = v09.Theme
-	Action                  = v09.Action
-	EventAction             = v09.EventAction
-	IconNameOrPath          = v09.IconNameOrPath
-)
+// Deprecated: Use [v09.UpdateDataModel]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type UpdateDataModel = v09.UpdateDataModel
 
-// Capability types.
-type (
-	ClientCapabilities    = v09.ClientCapabilities
-	ClientCapabilitiesV09 = v09.ClientCapabilitiesV09
-	ServerCapabilities    = v09.ServerCapabilities
-	ServerCapabilitiesV09 = v09.ServerCapabilitiesV09
-	CatalogDef            = v09.CatalogDef
-	FunctionDefinition    = v09.FunctionDefinition
-	ClientDataModel       = v09.ClientDataModel
-)
+// Deprecated: Use [v09.DeleteSurface]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type DeleteSurface = v09.DeleteSurface
 
-// Generated component types.
-type (
-	AudioPlayerComponent   = v09.AudioPlayerComponent
-	ButtonComponent        = v09.ButtonComponent
-	CardComponent          = v09.CardComponent
-	CheckBoxComponent      = v09.CheckBoxComponent
-	ChoicePickerComponent  = v09.ChoicePickerComponent
-	ColumnComponent        = v09.ColumnComponent
-	DateTimeInputComponent = v09.DateTimeInputComponent
-	DividerComponent       = v09.DividerComponent
-	IconComponent          = v09.IconComponent
-	ImageComponent         = v09.ImageComponent
-	ListComponent          = v09.ListComponent
-	ModalComponent         = v09.ModalComponent
-	RowComponent           = v09.RowComponent
-	SliderComponent        = v09.SliderComponent
-	TabsComponent          = v09.TabsComponent
-	TextComponent          = v09.TextComponent
-	TextFieldComponent     = v09.TextFieldComponent
-	VideoComponent         = v09.VideoComponent
-)
+// Deprecated: Use [v09.ClientMessage]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ClientMessage = v09.ClientMessage
 
-// Generated inline struct types.
-type (
-	TabDef       = v09.TabDef
-	ChoiceOption = v09.ChoiceOption
-)
+// Deprecated: Use [v09.ActionEvent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ActionEvent = v09.ActionEvent
 
-// Generated message list-wrapper types.
-type (
-	ClientMessageListWrapper = v09.ClientMessageListWrapper
-	ServerMessageListWrapper = v09.ServerMessageListWrapper
-)
+// Deprecated: Use [v09.ClientError]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ClientError = v09.ClientError
 
-// Generated enum types.
-type (
-	ReturnType               = v09.ReturnType
-	IconName                 = v09.IconName
-	ButtonVariant            = v09.ButtonVariant
-	ChoicePickerDisplayStyle = v09.ChoicePickerDisplayStyle
-	ChoicePickerVariant      = v09.ChoicePickerVariant
-	DividerAxis              = v09.DividerAxis
-	ImageFit                 = v09.ImageFit
-	ImageVariant             = v09.ImageVariant
-	LayoutAlign              = v09.LayoutAlign
-	LayoutJustify            = v09.LayoutJustify
-	ListDirection            = v09.ListDirection
-	TextFieldVariant         = v09.TextFieldVariant
-	TextVariant              = v09.TextVariant
-)
+// Deprecated: Use [v09.TabDef]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type TabDef = v09.TabDef
 
-// ReturnType constants.
-const (
-	ReturnTypeString  = v09.ReturnTypeString
-	ReturnTypeNumber  = v09.ReturnTypeNumber
-	ReturnTypeBoolean = v09.ReturnTypeBoolean
-	ReturnTypeArray   = v09.ReturnTypeArray
-	ReturnTypeObject  = v09.ReturnTypeObject
-	ReturnTypeAny     = v09.ReturnTypeAny
-	ReturnTypeVoid    = v09.ReturnTypeVoid
-)
+// Deprecated: Use [v09.ChoiceOption]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ChoiceOption = v09.ChoiceOption
 
-// Icon constants.
-const (
-	IconAccountCircle    = v09.IconAccountCircle
-	IconAdd              = v09.IconAdd
-	IconArrowBack        = v09.IconArrowBack
-	IconArrowForward     = v09.IconArrowForward
-	IconAttachFile       = v09.IconAttachFile
-	IconCalendarToday    = v09.IconCalendarToday
-	IconCall             = v09.IconCall
-	IconCamera           = v09.IconCamera
-	IconCheck            = v09.IconCheck
-	IconClose            = v09.IconClose
-	IconDelete           = v09.IconDelete
-	IconDownload         = v09.IconDownload
-	IconEdit             = v09.IconEdit
-	IconEvent            = v09.IconEvent
-	IconError            = v09.IconError
-	IconFastForward      = v09.IconFastForward
-	IconFavorite         = v09.IconFavorite
-	IconFavoriteOff      = v09.IconFavoriteOff
-	IconFolder           = v09.IconFolder
-	IconHelp             = v09.IconHelp
-	IconHome             = v09.IconHome
-	IconInfo             = v09.IconInfo
-	IconLocationOn       = v09.IconLocationOn
-	IconLock             = v09.IconLock
-	IconLockOpen         = v09.IconLockOpen
-	IconMail             = v09.IconMail
-	IconMenu             = v09.IconMenu
-	IconMoreVert         = v09.IconMoreVert
-	IconMoreHoriz        = v09.IconMoreHoriz
-	IconNotificationsOff = v09.IconNotificationsOff
-	IconNotifications    = v09.IconNotifications
-	IconPause            = v09.IconPause
-	IconPayment          = v09.IconPayment
-	IconPerson           = v09.IconPerson
-	IconPhone            = v09.IconPhone
-	IconPhoto            = v09.IconPhoto
-	IconPlay             = v09.IconPlay
-	IconPrint            = v09.IconPrint
-	IconRefresh          = v09.IconRefresh
-	IconRewind           = v09.IconRewind
-	IconSearch           = v09.IconSearch
-	IconSend             = v09.IconSend
-	IconSettings         = v09.IconSettings
-	IconShare            = v09.IconShare
-	IconShoppingCart     = v09.IconShoppingCart
-	IconSkipNext         = v09.IconSkipNext
-	IconSkipPrevious     = v09.IconSkipPrevious
-	IconStar             = v09.IconStar
-	IconStarHalf         = v09.IconStarHalf
-	IconStarOff          = v09.IconStarOff
-	IconStop             = v09.IconStop
-	IconUpload           = v09.IconUpload
-	IconVisibility       = v09.IconVisibility
-	IconVisibilityOff    = v09.IconVisibilityOff
-	IconVolumeDown       = v09.IconVolumeDown
-	IconVolumeMute       = v09.IconVolumeMute
-	IconVolumeOff        = v09.IconVolumeOff
-	IconVolumeUp         = v09.IconVolumeUp
-	IconWarning          = v09.IconWarning
-)
+// Deprecated: Use [v09.AudioPlayerComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type AudioPlayerComponent = v09.AudioPlayerComponent
 
-// Enum constants.
-const (
-	ButtonVariantDefault                 = v09.ButtonVariantDefault
-	ButtonVariantPrimary                 = v09.ButtonVariantPrimary
-	ButtonVariantBorderless              = v09.ButtonVariantBorderless
-	ChoicePickerDisplayStyleCheckbox     = v09.ChoicePickerDisplayStyleCheckbox
-	ChoicePickerDisplayStyleChips        = v09.ChoicePickerDisplayStyleChips
-	ChoicePickerVariantMultipleSelection = v09.ChoicePickerVariantMultipleSelection
-	ChoicePickerVariantMutuallyExclusive = v09.ChoicePickerVariantMutuallyExclusive
-	DividerAxisHorizontal                = v09.DividerAxisHorizontal
-	DividerAxisVertical                  = v09.DividerAxisVertical
-	ImageFitContain                      = v09.ImageFitContain
-	ImageFitCover                        = v09.ImageFitCover
-	ImageFitFill                         = v09.ImageFitFill
-	ImageFitNone                         = v09.ImageFitNone
-	ImageFitScaleDown                    = v09.ImageFitScaleDown
-	ImageVariantIcon                     = v09.ImageVariantIcon
-	ImageVariantAvatar                   = v09.ImageVariantAvatar
-	ImageVariantSmallFeature             = v09.ImageVariantSmallFeature
-	ImageVariantMediumFeature            = v09.ImageVariantMediumFeature
-	ImageVariantLargeFeature             = v09.ImageVariantLargeFeature
-	ImageVariantHeader                   = v09.ImageVariantHeader
-	LayoutAlignCenter                    = v09.LayoutAlignCenter
-	LayoutAlignEnd                       = v09.LayoutAlignEnd
-	LayoutAlignStart                     = v09.LayoutAlignStart
-	LayoutAlignStretch                   = v09.LayoutAlignStretch
-	LayoutJustifyStart                   = v09.LayoutJustifyStart
-	LayoutJustifyCenter                  = v09.LayoutJustifyCenter
-	LayoutJustifyEnd                     = v09.LayoutJustifyEnd
-	LayoutJustifySpaceBetween            = v09.LayoutJustifySpaceBetween
-	LayoutJustifySpaceAround             = v09.LayoutJustifySpaceAround
-	LayoutJustifySpaceEvenly             = v09.LayoutJustifySpaceEvenly
-	LayoutJustifyStretch                 = v09.LayoutJustifyStretch
-	ListDirectionVertical                = v09.ListDirectionVertical
-	ListDirectionHorizontal              = v09.ListDirectionHorizontal
-	TextFieldVariantLongText             = v09.TextFieldVariantLongText
-	TextFieldVariantNumber               = v09.TextFieldVariantNumber
-	TextFieldVariantShortText            = v09.TextFieldVariantShortText
-	TextFieldVariantObscured             = v09.TextFieldVariantObscured
-	TextVariantH1                        = v09.TextVariantH1
-	TextVariantH2                        = v09.TextVariantH2
-	TextVariantH3                        = v09.TextVariantH3
-	TextVariantH4                        = v09.TextVariantH4
-	TextVariantH5                        = v09.TextVariantH5
-	TextVariantCaption                   = v09.TextVariantCaption
-	TextVariantBody                      = v09.TextVariantBody
-)
+// Deprecated: Use [v09.ButtonComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ButtonComponent = v09.ButtonComponent
 
-// Hand-written Dynamic* constructors.
-var (
-	StringLiteral     = v09.StringLiteral
-	StringBinding     = v09.StringBinding
-	StringFunc        = v09.StringFunc
-	NumberLiteral     = v09.NumberLiteral
-	NumberBinding     = v09.NumberBinding
-	NumberFunc        = v09.NumberFunc
-	BoolLiteral       = v09.BoolLiteral
-	BoolBinding       = v09.BoolBinding
-	BoolFunc          = v09.BoolFunc
-	StringListLiteral = v09.StringListLiteral
-	StringListBinding = v09.StringListBinding
-	StringListFunc    = v09.StringListFunc
-	ValueString       = v09.ValueString
-	ValueNumber       = v09.ValueNumber
-	ValueBool         = v09.ValueBool
-	ValueArray        = v09.ValueArray
-	ValueBinding      = v09.ValueBinding
-	ValueFunc         = v09.ValueFunc
-)
+// Deprecated: Use [v09.CardComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type CardComponent = v09.CardComponent
 
-// Generated function constructors.
-var (
-	And            = v09.And
-	Email          = v09.Email
-	FormatCurrency = v09.FormatCurrency
-	FormatDate     = v09.FormatDate
-	FormatNumber   = v09.FormatNumber
-	FormatString   = v09.FormatString
-	Length         = v09.Length
-	Not            = v09.Not
-	Numeric        = v09.Numeric
-	OpenURL        = v09.OpenURL
-	Or             = v09.Or
-	Pluralize      = v09.Pluralize
-	Regex          = v09.Regex
-	Required       = v09.Required
-)
+// Deprecated: Use [v09.CheckBoxComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type CheckBoxComponent = v09.CheckBoxComponent
+
+// Deprecated: Use [v09.ChoicePickerComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ChoicePickerComponent = v09.ChoicePickerComponent
+
+// Deprecated: Use [v09.ColumnComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ColumnComponent = v09.ColumnComponent
+
+// Deprecated: Use [v09.DateTimeInputComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type DateTimeInputComponent = v09.DateTimeInputComponent
+
+// Deprecated: Use [v09.DividerComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type DividerComponent = v09.DividerComponent
+
+// Deprecated: Use [v09.IconComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type IconComponent = v09.IconComponent
+
+// Deprecated: Use [v09.ImageComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ImageComponent = v09.ImageComponent
+
+// Deprecated: Use [v09.ListComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ListComponent = v09.ListComponent
+
+// Deprecated: Use [v09.ModalComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ModalComponent = v09.ModalComponent
+
+// Deprecated: Use [v09.RowComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type RowComponent = v09.RowComponent
+
+// Deprecated: Use [v09.SliderComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type SliderComponent = v09.SliderComponent
+
+// Deprecated: Use [v09.TabsComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type TabsComponent = v09.TabsComponent
+
+// Deprecated: Use [v09.TextComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type TextComponent = v09.TextComponent
+
+// Deprecated: Use [v09.TextFieldComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type TextFieldComponent = v09.TextFieldComponent
+
+// Deprecated: Use [v09.VideoComponent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type VideoComponent = v09.VideoComponent
+
+// Deprecated: Use [v09.ReturnType]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ReturnType = v09.ReturnType
+
+// Deprecated: Use [v09.ReturnTypeString]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ReturnTypeString = v09.ReturnTypeString
+
+// Deprecated: Use [v09.ReturnTypeNumber]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ReturnTypeNumber = v09.ReturnTypeNumber
+
+// Deprecated: Use [v09.ReturnTypeBoolean]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ReturnTypeBoolean = v09.ReturnTypeBoolean
+
+// Deprecated: Use [v09.ReturnTypeArray]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ReturnTypeArray = v09.ReturnTypeArray
+
+// Deprecated: Use [v09.ReturnTypeObject]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ReturnTypeObject = v09.ReturnTypeObject
+
+// Deprecated: Use [v09.ReturnTypeAny]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ReturnTypeAny = v09.ReturnTypeAny
+
+// Deprecated: Use [v09.ReturnTypeVoid]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ReturnTypeVoid = v09.ReturnTypeVoid
+
+// Deprecated: Use [v09.IconName]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type IconName = v09.IconName
+
+// Deprecated: Use [v09.ButtonVariant]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ButtonVariant = v09.ButtonVariant
+
+// Deprecated: Use [v09.ButtonVariantDefault]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ButtonVariantDefault = v09.ButtonVariantDefault
+
+// Deprecated: Use [v09.ButtonVariantPrimary]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ButtonVariantPrimary = v09.ButtonVariantPrimary
+
+// Deprecated: Use [v09.ButtonVariantBorderless]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ButtonVariantBorderless = v09.ButtonVariantBorderless
+
+// Deprecated: Use [v09.ChoicePickerDisplayStyle]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ChoicePickerDisplayStyle = v09.ChoicePickerDisplayStyle
+
+// Deprecated: Use [v09.ChoicePickerDisplayStyleCheckbox]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ChoicePickerDisplayStyleCheckbox = v09.ChoicePickerDisplayStyleCheckbox
+
+// Deprecated: Use [v09.ChoicePickerDisplayStyleChips]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ChoicePickerDisplayStyleChips = v09.ChoicePickerDisplayStyleChips
+
+// Deprecated: Use [v09.ChoicePickerVariant]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ChoicePickerVariant = v09.ChoicePickerVariant
+
+// Deprecated: Use [v09.ChoicePickerVariantMultipleSelection]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ChoicePickerVariantMultipleSelection = v09.ChoicePickerVariantMultipleSelection
+
+// Deprecated: Use [v09.ChoicePickerVariantMutuallyExclusive]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ChoicePickerVariantMutuallyExclusive = v09.ChoicePickerVariantMutuallyExclusive
+
+// Deprecated: Use [v09.DividerAxis]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type DividerAxis = v09.DividerAxis
+
+// Deprecated: Use [v09.DividerAxisHorizontal]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const DividerAxisHorizontal = v09.DividerAxisHorizontal
+
+// Deprecated: Use [v09.DividerAxisVertical]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const DividerAxisVertical = v09.DividerAxisVertical
+
+// Deprecated: Use [v09.ImageFit]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ImageFit = v09.ImageFit
+
+// Deprecated: Use [v09.ImageFitContain]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ImageFitContain = v09.ImageFitContain
+
+// Deprecated: Use [v09.ImageFitCover]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ImageFitCover = v09.ImageFitCover
+
+// Deprecated: Use [v09.ImageFitFill]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ImageFitFill = v09.ImageFitFill
+
+// Deprecated: Use [v09.ImageFitNone]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ImageFitNone = v09.ImageFitNone
+
+// Deprecated: Use [v09.ImageFitScaleDown]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ImageFitScaleDown = v09.ImageFitScaleDown
+
+// Deprecated: Use [v09.ImageVariant]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ImageVariant = v09.ImageVariant
+
+// Deprecated: Use [v09.ImageVariantIcon]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ImageVariantIcon = v09.ImageVariantIcon
+
+// Deprecated: Use [v09.ImageVariantAvatar]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ImageVariantAvatar = v09.ImageVariantAvatar
+
+// Deprecated: Use [v09.ImageVariantSmallFeature]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ImageVariantSmallFeature = v09.ImageVariantSmallFeature
+
+// Deprecated: Use [v09.ImageVariantMediumFeature]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ImageVariantMediumFeature = v09.ImageVariantMediumFeature
+
+// Deprecated: Use [v09.ImageVariantLargeFeature]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ImageVariantLargeFeature = v09.ImageVariantLargeFeature
+
+// Deprecated: Use [v09.ImageVariantHeader]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ImageVariantHeader = v09.ImageVariantHeader
+
+// Deprecated: Use [v09.LayoutAlign]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type LayoutAlign = v09.LayoutAlign
+
+// Deprecated: Use [v09.LayoutAlignCenter]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const LayoutAlignCenter = v09.LayoutAlignCenter
+
+// Deprecated: Use [v09.LayoutAlignEnd]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const LayoutAlignEnd = v09.LayoutAlignEnd
+
+// Deprecated: Use [v09.LayoutAlignStart]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const LayoutAlignStart = v09.LayoutAlignStart
+
+// Deprecated: Use [v09.LayoutAlignStretch]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const LayoutAlignStretch = v09.LayoutAlignStretch
+
+// Deprecated: Use [v09.LayoutJustify]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type LayoutJustify = v09.LayoutJustify
+
+// Deprecated: Use [v09.LayoutJustifyStart]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const LayoutJustifyStart = v09.LayoutJustifyStart
+
+// Deprecated: Use [v09.LayoutJustifyCenter]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const LayoutJustifyCenter = v09.LayoutJustifyCenter
+
+// Deprecated: Use [v09.LayoutJustifyEnd]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const LayoutJustifyEnd = v09.LayoutJustifyEnd
+
+// Deprecated: Use [v09.LayoutJustifySpaceBetween]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const LayoutJustifySpaceBetween = v09.LayoutJustifySpaceBetween
+
+// Deprecated: Use [v09.LayoutJustifySpaceAround]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const LayoutJustifySpaceAround = v09.LayoutJustifySpaceAround
+
+// Deprecated: Use [v09.LayoutJustifySpaceEvenly]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const LayoutJustifySpaceEvenly = v09.LayoutJustifySpaceEvenly
+
+// Deprecated: Use [v09.LayoutJustifyStretch]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const LayoutJustifyStretch = v09.LayoutJustifyStretch
+
+// Deprecated: Use [v09.ListDirection]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ListDirection = v09.ListDirection
+
+// Deprecated: Use [v09.ListDirectionVertical]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ListDirectionVertical = v09.ListDirectionVertical
+
+// Deprecated: Use [v09.ListDirectionHorizontal]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const ListDirectionHorizontal = v09.ListDirectionHorizontal
+
+// Deprecated: Use [v09.TextFieldVariant]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type TextFieldVariant = v09.TextFieldVariant
+
+// Deprecated: Use [v09.TextFieldVariantLongText]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const TextFieldVariantLongText = v09.TextFieldVariantLongText
+
+// Deprecated: Use [v09.TextFieldVariantNumber]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const TextFieldVariantNumber = v09.TextFieldVariantNumber
+
+// Deprecated: Use [v09.TextFieldVariantShortText]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const TextFieldVariantShortText = v09.TextFieldVariantShortText
+
+// Deprecated: Use [v09.TextFieldVariantObscured]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const TextFieldVariantObscured = v09.TextFieldVariantObscured
+
+// Deprecated: Use [v09.TextVariant]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type TextVariant = v09.TextVariant
+
+// Deprecated: Use [v09.TextVariantH1]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const TextVariantH1 = v09.TextVariantH1
+
+// Deprecated: Use [v09.TextVariantH2]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const TextVariantH2 = v09.TextVariantH2
+
+// Deprecated: Use [v09.TextVariantH3]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const TextVariantH3 = v09.TextVariantH3
+
+// Deprecated: Use [v09.TextVariantH4]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const TextVariantH4 = v09.TextVariantH4
+
+// Deprecated: Use [v09.TextVariantH5]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const TextVariantH5 = v09.TextVariantH5
+
+// Deprecated: Use [v09.TextVariantCaption]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const TextVariantCaption = v09.TextVariantCaption
+
+// Deprecated: Use [v09.TextVariantBody]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const TextVariantBody = v09.TextVariantBody
+
+// Deprecated: Use [v09.And]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func And(values []v09.DynamicBoolean) v09.DynamicBoolean {
+	return v09.And(values)
+}
+
+// Deprecated: Use [v09.Email]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func Email(value v09.DynamicString) v09.DynamicBoolean {
+	return v09.Email(value)
+}
+
+// Deprecated: Use [v09.FormatCurrency]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func FormatCurrency(currency v09.DynamicString, decimals v09.DynamicNumber, grouping v09.DynamicBoolean, value v09.DynamicNumber) v09.DynamicString {
+	return v09.FormatCurrency(currency, decimals, grouping, value)
+}
+
+// Deprecated: Use [v09.FormatDate]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func FormatDate(format v09.DynamicString, value v09.DynamicValue) v09.DynamicString {
+	return v09.FormatDate(format, value)
+}
+
+// Deprecated: Use [v09.FormatNumber]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func FormatNumber(decimals v09.DynamicNumber, grouping v09.DynamicBoolean, value v09.DynamicNumber) v09.DynamicString {
+	return v09.FormatNumber(decimals, grouping, value)
+}
+
+// Deprecated: Use [v09.FormatString]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func FormatString(value v09.DynamicString) v09.DynamicString {
+	return v09.FormatString(value)
+}
+
+// Deprecated: Use [v09.Length]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func Length(max int, min int, value v09.DynamicString) v09.DynamicBoolean {
+	return v09.Length(max, min, value)
+}
+
+// Deprecated: Use [v09.Not]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func Not(value v09.DynamicBoolean) v09.DynamicBoolean {
+	return v09.Not(value)
+}
+
+// Deprecated: Use [v09.Numeric]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func Numeric(max float64, min float64, value v09.DynamicNumber) v09.DynamicBoolean {
+	return v09.Numeric(max, min, value)
+}
+
+// Deprecated: Use [v09.OpenURL]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func OpenURL(url string) v09.Action {
+	return v09.OpenURL(url)
+}
+
+// Deprecated: Use [v09.Or]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func Or(values []v09.DynamicBoolean) v09.DynamicBoolean {
+	return v09.Or(values)
+}
+
+// Deprecated: Use [v09.Pluralize]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func Pluralize(few v09.DynamicString, many v09.DynamicString, one v09.DynamicString, other v09.DynamicString, two v09.DynamicString, value v09.DynamicNumber, zero v09.DynamicString) v09.DynamicString {
+	return v09.Pluralize(few, many, one, other, two, value, zero)
+}
+
+// Deprecated: Use [v09.Regex]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func Regex(pattern string, value v09.DynamicString) v09.DynamicBoolean {
+	return v09.Regex(pattern, value)
+}
+
+// Deprecated: Use [v09.Required]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+func Required(value v09.DynamicValue) v09.DynamicBoolean {
+	return v09.Required(value)
+}
+
+// Deprecated: Use [v09.IconAccountCircle]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconAccountCircle = v09.IconAccountCircle
+
+// Deprecated: Use [v09.IconAdd]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconAdd = v09.IconAdd
+
+// Deprecated: Use [v09.IconArrowBack]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconArrowBack = v09.IconArrowBack
+
+// Deprecated: Use [v09.IconArrowForward]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconArrowForward = v09.IconArrowForward
+
+// Deprecated: Use [v09.IconAttachFile]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconAttachFile = v09.IconAttachFile
+
+// Deprecated: Use [v09.IconCalendarToday]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconCalendarToday = v09.IconCalendarToday
+
+// Deprecated: Use [v09.IconCall]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconCall = v09.IconCall
+
+// Deprecated: Use [v09.IconCamera]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconCamera = v09.IconCamera
+
+// Deprecated: Use [v09.IconCheck]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconCheck = v09.IconCheck
+
+// Deprecated: Use [v09.IconClose]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconClose = v09.IconClose
+
+// Deprecated: Use [v09.IconDelete]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconDelete = v09.IconDelete
+
+// Deprecated: Use [v09.IconDownload]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconDownload = v09.IconDownload
+
+// Deprecated: Use [v09.IconEdit]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconEdit = v09.IconEdit
+
+// Deprecated: Use [v09.IconEvent]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconEvent = v09.IconEvent
+
+// Deprecated: Use [v09.IconError]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconError = v09.IconError
+
+// Deprecated: Use [v09.IconFastForward]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconFastForward = v09.IconFastForward
+
+// Deprecated: Use [v09.IconFavorite]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconFavorite = v09.IconFavorite
+
+// Deprecated: Use [v09.IconFavoriteOff]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconFavoriteOff = v09.IconFavoriteOff
+
+// Deprecated: Use [v09.IconFolder]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconFolder = v09.IconFolder
+
+// Deprecated: Use [v09.IconHelp]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconHelp = v09.IconHelp
+
+// Deprecated: Use [v09.IconHome]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconHome = v09.IconHome
+
+// Deprecated: Use [v09.IconInfo]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconInfo = v09.IconInfo
+
+// Deprecated: Use [v09.IconLocationOn]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconLocationOn = v09.IconLocationOn
+
+// Deprecated: Use [v09.IconLock]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconLock = v09.IconLock
+
+// Deprecated: Use [v09.IconLockOpen]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconLockOpen = v09.IconLockOpen
+
+// Deprecated: Use [v09.IconMail]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconMail = v09.IconMail
+
+// Deprecated: Use [v09.IconMenu]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconMenu = v09.IconMenu
+
+// Deprecated: Use [v09.IconMoreVert]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconMoreVert = v09.IconMoreVert
+
+// Deprecated: Use [v09.IconMoreHoriz]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconMoreHoriz = v09.IconMoreHoriz
+
+// Deprecated: Use [v09.IconNotificationsOff]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconNotificationsOff = v09.IconNotificationsOff
+
+// Deprecated: Use [v09.IconNotifications]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconNotifications = v09.IconNotifications
+
+// Deprecated: Use [v09.IconPause]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconPause = v09.IconPause
+
+// Deprecated: Use [v09.IconPayment]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconPayment = v09.IconPayment
+
+// Deprecated: Use [v09.IconPerson]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconPerson = v09.IconPerson
+
+// Deprecated: Use [v09.IconPhone]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconPhone = v09.IconPhone
+
+// Deprecated: Use [v09.IconPhoto]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconPhoto = v09.IconPhoto
+
+// Deprecated: Use [v09.IconPlay]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconPlay = v09.IconPlay
+
+// Deprecated: Use [v09.IconPrint]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconPrint = v09.IconPrint
+
+// Deprecated: Use [v09.IconRefresh]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconRefresh = v09.IconRefresh
+
+// Deprecated: Use [v09.IconRewind]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconRewind = v09.IconRewind
+
+// Deprecated: Use [v09.IconSearch]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconSearch = v09.IconSearch
+
+// Deprecated: Use [v09.IconSend]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconSend = v09.IconSend
+
+// Deprecated: Use [v09.IconSettings]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconSettings = v09.IconSettings
+
+// Deprecated: Use [v09.IconShare]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconShare = v09.IconShare
+
+// Deprecated: Use [v09.IconShoppingCart]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconShoppingCart = v09.IconShoppingCart
+
+// Deprecated: Use [v09.IconSkipNext]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconSkipNext = v09.IconSkipNext
+
+// Deprecated: Use [v09.IconSkipPrevious]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconSkipPrevious = v09.IconSkipPrevious
+
+// Deprecated: Use [v09.IconStar]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconStar = v09.IconStar
+
+// Deprecated: Use [v09.IconStarHalf]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconStarHalf = v09.IconStarHalf
+
+// Deprecated: Use [v09.IconStarOff]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconStarOff = v09.IconStarOff
+
+// Deprecated: Use [v09.IconStop]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconStop = v09.IconStop
+
+// Deprecated: Use [v09.IconUpload]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconUpload = v09.IconUpload
+
+// Deprecated: Use [v09.IconVisibility]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconVisibility = v09.IconVisibility
+
+// Deprecated: Use [v09.IconVisibilityOff]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconVisibilityOff = v09.IconVisibilityOff
+
+// Deprecated: Use [v09.IconVolumeDown]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconVolumeDown = v09.IconVolumeDown
+
+// Deprecated: Use [v09.IconVolumeMute]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconVolumeMute = v09.IconVolumeMute
+
+// Deprecated: Use [v09.IconVolumeOff]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconVolumeOff = v09.IconVolumeOff
+
+// Deprecated: Use [v09.IconVolumeUp]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconVolumeUp = v09.IconVolumeUp
+
+// Deprecated: Use [v09.IconWarning]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+const IconWarning = v09.IconWarning
+
+// Deprecated: Use [v09.ClientMessageListWrapper]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ClientMessageListWrapper = v09.ClientMessageListWrapper
+
+// Deprecated: Use [v09.ServerMessageListWrapper]. The root package becomes the A2UI v1.0 API in the next release.
+//
+//go:fix inline
+type ServerMessageListWrapper = v09.ServerMessageListWrapper
