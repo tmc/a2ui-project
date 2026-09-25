@@ -2,6 +2,7 @@ package a2uibuild
 
 import (
 	"maps"
+	"slices"
 
 	"github.com/a2ui-project/a2ui/go/a2ui"
 )
@@ -31,7 +32,7 @@ func (s Surface) WithSendDataModel() Surface {
 
 // Add returns a surface with c appended.
 func (s Surface) Add(c a2ui.Component) Surface {
-	s.components = append(slicesClone(s.components), c)
+	s.components = append(slices.Clone(s.components), c)
 	return s
 }
 
@@ -59,7 +60,7 @@ func (s Surface) Messages() []a2ui.AgentMessage {
 			Version: a2ui.Version,
 			UpdateComponents: &a2ui.UpdateComponents{
 				SurfaceID:  s.surfaceID,
-				Components: slicesClone(s.components),
+				Components: slices.Clone(s.components),
 			},
 		})
 	}
@@ -75,11 +76,4 @@ func (s Surface) Messages() []a2ui.AgentMessage {
 	}
 
 	return msgs
-}
-
-func slicesClone[S ~[]E, E any](s S) S {
-	if s == nil {
-		return nil
-	}
-	return append(S(nil), s...)
 }
