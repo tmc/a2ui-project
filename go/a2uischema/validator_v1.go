@@ -13,25 +13,25 @@ import (
 func (v *Validator) parseMessagesV1(data []byte) ([]a2ui.AgentMessage, error) {
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
-		return nil, fmt.Errorf("schema: empty payload")
+		return nil, fmt.Errorf("a2uischema: empty payload")
 	}
 	if data[0] == '[' {
 		var msgs []a2ui.AgentMessage
 		if err := json.Unmarshal(data, &msgs); err != nil {
-			return nil, fmt.Errorf("schema: parse messages: %w", err)
+			return nil, fmt.Errorf("a2uischema: parse messages: %w", err)
 		}
 		return msgs, nil
 	}
 	var msg a2ui.AgentMessage
 	if err := json.Unmarshal(data, &msg); err != nil {
-		return nil, fmt.Errorf("schema: parse message: %w", err)
+		return nil, fmt.Errorf("a2uischema: parse message: %w", err)
 	}
 	return []a2ui.AgentMessage{msg}, nil
 }
 
 func (v *Validator) validateMessagesV1(msgs []a2ui.AgentMessage) error {
 	if len(msgs) == 0 {
-		return fmt.Errorf("schema: no messages to validate")
+		return fmt.Errorf("a2uischema: no messages to validate")
 	}
 	// Components may reference children that arrive in later messages
 	// (progressive rendering), so unknown references are only reported
@@ -40,7 +40,7 @@ func (v *Validator) validateMessagesV1(msgs []a2ui.AgentMessage) error {
 	pending := make(map[string][]componentRef)
 	for i, msg := range msgs {
 		if err := v.validateMessageV1(msg); err != nil {
-			return fmt.Errorf("schema: message[%d]: %w", i, err)
+			return fmt.Errorf("a2uischema: message[%d]: %w", i, err)
 		}
 		switch {
 		case msg.CreateSurface != nil:
@@ -85,7 +85,7 @@ func (v *Validator) validateMessagesV1(msgs []a2ui.AgentMessage) error {
 	for _, id := range slices.Sorted(maps.Keys(pending)) {
 		if refs := pending[id]; len(refs) > 0 {
 			r := refs[0]
-			return fmt.Errorf("schema: surface %q: %w", id, validationError(ValidationUnknownComponentRef, "", r.from, r.to, "", fmt.Sprintf("component %q references unknown component %q", r.from, r.to)))
+			return fmt.Errorf("a2uischema: surface %q: %w", id, validationError(ValidationUnknownComponentRef, "", r.from, r.to, "", fmt.Sprintf("component %q references unknown component %q", r.from, r.to)))
 		}
 	}
 	return nil

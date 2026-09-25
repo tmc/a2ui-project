@@ -58,18 +58,18 @@ func NewValidator(catalog *Catalog) *Validator {
 func (v *Validator) ParseMessages(data []byte) ([]v09.ServerMessage, error) {
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
-		return nil, fmt.Errorf("schema: empty payload")
+		return nil, fmt.Errorf("a2uischema: empty payload")
 	}
 	if data[0] == '[' {
 		var msgs []v09.ServerMessage
 		if err := json.Unmarshal(data, &msgs); err != nil {
-			return nil, fmt.Errorf("schema: parse messages: %w", err)
+			return nil, fmt.Errorf("a2uischema: parse messages: %w", err)
 		}
 		return msgs, nil
 	}
 	var msg v09.ServerMessage
 	if err := json.Unmarshal(data, &msg); err != nil {
-		return nil, fmt.Errorf("schema: parse message: %w", err)
+		return nil, fmt.Errorf("a2uischema: parse message: %w", err)
 	}
 	return []v09.ServerMessage{msg}, nil
 }
@@ -114,20 +114,20 @@ func (v *Validator) ValidateVersionMessages(msgs any) error {
 	case []a2ui.AgentMessage:
 		return v.validateMessagesV1(msgs)
 	default:
-		return fmt.Errorf("schema: unsupported messages type %T", msgs)
+		return fmt.Errorf("a2uischema: unsupported messages type %T", msgs)
 	}
 }
 
 // ValidateMessages validates a batch of A2UI v0.9 messages.
 func (v *Validator) ValidateMessages(msgs []v09.ServerMessage) error {
 	if len(msgs) == 0 {
-		return fmt.Errorf("schema: no messages to validate")
+		return fmt.Errorf("a2uischema: no messages to validate")
 	}
 	surfaces := make(map[string]string)
 	surfaceComponents := make(map[string]map[string]bool)
 	for i, msg := range msgs {
 		if err := v.validateMessage(msg); err != nil {
-			return fmt.Errorf("schema: message[%d]: %w", i, err)
+			return fmt.Errorf("a2uischema: message[%d]: %w", i, err)
 		}
 		switch {
 		case msg.CreateSurface != nil:

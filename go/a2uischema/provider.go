@@ -18,7 +18,7 @@ type StaticCatalogProvider struct {
 // Load implements [CatalogProvider].
 func (p StaticCatalogProvider) Load() ([]byte, error) {
 	if len(p.Data) == 0 {
-		return nil, fmt.Errorf("schema: static catalog provider has no data")
+		return nil, fmt.Errorf("a2uischema: static catalog provider has no data")
 	}
 	data := make([]byte, len(p.Data))
 	copy(data, p.Data)
@@ -43,6 +43,6 @@ func BasicCatalogProvider(version Version) (CatalogProvider, error) {
 	case Version1:
 		return StaticCatalogProvider{Data: basicCatalogV1}, nil
 	default:
-		return nil, fmt.Errorf("schema: unsupported version %q", version)
+		return nil, fmt.Errorf("a2uischema: unsupported version %q", version)
 	}
 }
