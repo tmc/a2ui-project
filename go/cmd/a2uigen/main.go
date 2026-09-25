@@ -11,7 +11,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"go/ast"
 	"go/format"
+	"go/parser"
+	"go/token"
 	"io/fs"
 	"log"
 	"os"
@@ -594,10 +597,13 @@ func copyStaticSDK(sdkRoot, specRoot, out string, cfg outputConfig) error {
 			// The root package shares its directory with the version
 			// subpackages and, with -a2ui-dir=., with the module root.
 			src, dst = filepath.Join(sdkRoot, "a2ui"), a2uiDir
-			if err := removeGoFiles(dst); err != nil {
+			// Only generated files are removed; the files copied from
+			// the SDK overwrite their previous versions, and anything
+			// else, such as a go:generate directive, is left alone.
+			if err := removeGeneratedGoFiles(dst); err != nil {
 				return err
 			}
-			if err := os.RemoveAll(filepath.Join(dst, "testdata")); err != nil {
+			if err := os.RemoveAll(filepath.Join(dst, "testdata", v.spec)); err != nil {
 				return err
 			}
 			skip = func(rel string, d fs.DirEntry) bool {
@@ -638,14 +644,23 @@ func copyStaticSDK(sdkRoot, specRoot, out string, cfg outputConfig) error {
 	return nil
 }
 
-// removeGoFiles removes the Go source files in dir, but not in its
-// subdirectories.
-func removeGoFiles(dir string) error {
+// removeGeneratedGoFiles removes the generated Go source files in dir,
+// but not in its subdirectories. A file is generated if it has a
+// "Code generated ... DO NOT EDIT." comment (see [ast.IsGenerated]).
+func removeGeneratedGoFiles(dir string) error {
 	files, err := filepath.Glob(filepath.Join(dir, "*.go"))
 	if err != nil {
 		return err
 	}
+	fset := token.NewFileSet()
 	for _, file := range files {
+		f, err := parser.ParseFile(fset, file, nil, parser.PackageClauseOnly|parser.ParseComments)
+		if err != nil {
+			return err
+		}
+		if !ast.IsGenerated(f) {
+			continue
+		}
 		if err := os.Remove(file); err != nil {
 			return err
 		}
