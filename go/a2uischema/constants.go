@@ -20,5 +20,5 @@ type Version string
 const (
 	Version09  Version = "v0.9"
 	Version091 Version = "v0.9.1"
-	Version10  Version = "v1.0"
+	Version1   Version = "v1.0"
 )

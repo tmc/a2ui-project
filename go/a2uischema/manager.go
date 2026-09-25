@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/a2ui-project/a2ui/go/a2ui"
+	"github.com/a2ui-project/a2ui/go/a2ui/v09"
 	a2uiv091 "github.com/a2ui-project/a2ui/go/a2ui/v091"
 	a2uiv10 "github.com/a2ui-project/a2ui/go/a2ui/v10"
 )
@@ -156,7 +156,7 @@ func (m *SchemaManager) applyModifiers(schema map[string]any) error {
 	return nil
 }
 
-func (m *SchemaManager) selectCatalog(clientCapabilities *a2ui.ClientCapabilities) (*Catalog, error) {
+func (m *SchemaManager) selectCatalog(clientCapabilities *v09.ClientCapabilities) (*Catalog, error) {
 	if len(m.supportedCatalogs) == 0 {
 		return nil, fmt.Errorf("schema: no supported catalogs configured")
 	}
@@ -196,17 +196,17 @@ func (m *SchemaManager) selectCatalog(clientCapabilities *a2ui.ClientCapabilitie
 	return nil, fmt.Errorf("schema: no mutually supported catalog found")
 }
 
-func (m *SchemaManager) selectCatalogV10(rendererCapabilities *a2uiv10.RendererCapabilities) (*Catalog, error) {
-	if m.version != Version10 {
-		return nil, fmt.Errorf("schema: manager version = %q, want %q", m.version, Version10)
+func (m *SchemaManager) selectCatalogV1(rendererCapabilities *a2uiv10.RendererCapabilities) (*Catalog, error) {
+	if m.version != Version1 {
+		return nil, fmt.Errorf("schema: manager version = %q, want %q", m.version, Version1)
 	}
 	if len(m.supportedCatalogs) == 0 {
 		return nil, fmt.Errorf("schema: no supported catalogs configured")
 	}
-	if rendererCapabilities == nil || rendererCapabilities.V10 == nil {
+	if rendererCapabilities == nil || rendererCapabilities.V1 == nil {
 		return m.supportedCatalogs[0], nil
 	}
-	caps := rendererCapabilities.V10
+	caps := rendererCapabilities.V1
 	if len(caps.InlineCatalogs) > 0 {
 		if !m.acceptsInlineCatalogs {
 			return nil, fmt.Errorf("schema: inline catalogs provided but not accepted")
@@ -223,7 +223,7 @@ func (m *SchemaManager) selectCatalogV10(rendererCapabilities *a2uiv10.RendererC
 				}
 			}
 		}
-		return mergeInlineCatalogsV10(m.version, base, caps.InlineCatalogs)
+		return mergeInlineCatalogsV1(m.version, base, caps.InlineCatalogs)
 	}
 	if len(caps.SupportedCatalogIDs) == 0 {
 		return m.supportedCatalogs[0], nil
@@ -242,11 +242,11 @@ func (m *SchemaManager) selectCatalogV10(rendererCapabilities *a2uiv10.RendererC
 func (m *SchemaManager) selectCatalogFor(clientCapabilities any) (*Catalog, error) {
 	switch caps := clientCapabilities.(type) {
 	case nil:
-		if m.version == Version10 {
-			return m.selectCatalogV10(nil)
+		if m.version == Version1 {
+			return m.selectCatalogV1(nil)
 		}
 		return m.selectCatalog(nil)
-	case *a2ui.ClientCapabilities:
+	case *v09.ClientCapabilities:
 		if !isV09WireVersion(m.version) {
 			return nil, fmt.Errorf("schema: manager version = %q, got v0.9 capabilities", m.version)
 		}
@@ -257,10 +257,10 @@ func (m *SchemaManager) selectCatalogFor(clientCapabilities any) (*Catalog, erro
 		}
 		return m.selectCatalogV091(caps)
 	case *a2uiv10.RendererCapabilities:
-		if m.version != Version10 {
+		if m.version != Version1 {
 			return nil, fmt.Errorf("schema: manager version = %q, got v1.0 capabilities", m.version)
 		}
-		return m.selectCatalogV10(caps)
+		return m.selectCatalogV1(caps)
 	default:
 		return nil, fmt.Errorf("schema: unsupported client capabilities type %T", clientCapabilities)
 	}
@@ -309,7 +309,7 @@ func (m *SchemaManager) selectCatalogV091(clientCapabilities *a2uiv091.ClientCap
 	return nil, fmt.Errorf("schema: no mutually supported catalog found")
 }
 
-func mergeInlineCatalogs(version Version, base *Catalog, inlineCatalogs []a2ui.CatalogDef) (*Catalog, error) {
+func mergeInlineCatalogs(version Version, base *Catalog, inlineCatalogs []v09.CatalogDef) (*Catalog, error) {
 	serverSchema, commonSchema, catalogSchema, err := cloneCatalogSchemas(base)
 	if err != nil {
 		return nil, err
@@ -407,7 +407,7 @@ func mergeInlineCatalogsV091(version Version, base *Catalog, inlineCatalogs []a2
 	return merged, nil
 }
 
-func mergeInlineCatalogsV10(version Version, base *Catalog, inlineCatalogs []a2uiv10.CatalogDef) (*Catalog, error) {
+func mergeInlineCatalogsV1(version Version, base *Catalog, inlineCatalogs []a2uiv10.CatalogDef) (*Catalog, error) {
 	serverSchema, commonSchema, catalogSchema, err := cloneCatalogSchemas(base)
 	if err != nil {
 		return nil, err
@@ -522,12 +522,12 @@ func embeddedSchemas(version Version) (map[string]any, map[string]any, error) {
 			return nil, nil, err
 		}
 		return serverMap, commonMap, nil
-	case Version10:
-		serverMap, err := unmarshalJSONMap(agentToRendererV10)
+	case Version1:
+		serverMap, err := unmarshalJSONMap(agentToRendererV1)
 		if err != nil {
 			return nil, nil, err
 		}
-		commonMap, err := unmarshalJSONMap(commonTypesV10)
+		commonMap, err := unmarshalJSONMap(commonTypesV1)
 		if err != nil {
 			return nil, nil, err
 		}

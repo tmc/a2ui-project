@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/a2ui-project/a2ui/go/a2ui"
+	"github.com/a2ui-project/a2ui/go/a2ui/v09"
 )
 
 const (
@@ -19,9 +19,9 @@ const (
 // A part contains either conversational text, parsed A2UI messages, or both
 // (text preceding a JSON block and the messages extracted from it).
 type ResponsePart struct {
-	Text     string               // conversational text
-	Messages []a2ui.ServerMessage // A2UI v0.9 messages (nil if text-only)
-	Payload  []map[string]any     // version-neutral A2UI messages (nil if text-only)
+	Text     string              // conversational text
+	Messages []v09.ServerMessage // A2UI v0.9 messages (nil if text-only)
+	Payload  []map[string]any    // version-neutral A2UI messages (nil if text-only)
 }
 
 // Parser incrementally parses A2UI messages from text chunks.
@@ -209,7 +209,7 @@ func (p *Parser) scanForOpen(parts *[]ResponsePart) (bool, bool) {
 			}
 			part := ResponsePart{}
 			if hasMessage {
-				part.Messages = []a2ui.ServerMessage{msg}
+				part.Messages = []v09.ServerMessage{msg}
 			}
 			if hasPayload {
 				part.Payload = []map[string]any{payload}
@@ -319,7 +319,7 @@ func (p *Parser) finishJSON() ([]ResponsePart, error) {
 // and parses them as ServerMessages.
 func (p *Parser) extractObjects() ([]ResponsePart, error) {
 	raw := p.jsonBuf.String()
-	var msgs []a2ui.ServerMessage
+	var msgs []v09.ServerMessage
 	var payload []map[string]any
 
 	depth := 0
@@ -372,17 +372,17 @@ func (p *Parser) extractObjects() ([]ResponsePart, error) {
 }
 
 // isA2UIMessage returns true if the message has at least one recognized payload.
-func isA2UIMessage(m a2ui.ServerMessage) bool {
+func isA2UIMessage(m v09.ServerMessage) bool {
 	return m.CreateSurface != nil ||
 		m.UpdateComponents != nil ||
 		m.UpdateDataModel != nil ||
 		m.DeleteSurface != nil
 }
 
-func parseMessage(obj string) (a2ui.ServerMessage, bool) {
-	var msg a2ui.ServerMessage
+func parseMessage(obj string) (v09.ServerMessage, bool) {
+	var msg v09.ServerMessage
 	if err := json.Unmarshal([]byte(obj), &msg); err != nil || !isA2UIMessage(msg) {
-		return a2ui.ServerMessage{}, false
+		return v09.ServerMessage{}, false
 	}
 	return msg, true
 }

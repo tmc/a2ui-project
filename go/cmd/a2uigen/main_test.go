@@ -70,8 +70,19 @@ func TestGenerateSDKRootLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	for _, stale := range staleSDKDirs {
+		if err := os.MkdirAll(filepath.Join(dir, stale), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	if err := generateSDK(dir, "example.com/root", ".", "a2uibuild", "", "", ""); err != nil {
 		t.Fatal(err)
+	}
+	for _, stale := range staleSDKDirs {
+		if _, err := os.Stat(filepath.Join(dir, stale)); !os.IsNotExist(err) {
+			t.Fatalf("stale directory %s not removed (err = %v)", stale, err)
+		}
 	}
 
 	checks := []struct {
@@ -79,7 +90,7 @@ func TestGenerateSDKRootLayout(t *testing.T) {
 		want string
 	}{
 		{"a2ui.go", `import "example.com/root/v09"`},
-		{filepath.Join("a2uibuild", "zz_builders.go"), `import "example.com/root"`},
+		{filepath.Join("a2uibuild", "zz_builders.go"), `import "example.com/root/v09"`},
 		{filepath.Join("a2uischema", "manager.go"), `"example.com/root/v10"`},
 	}
 	for _, check := range checks {

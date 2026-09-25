@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/a2ui-project/a2ui/go/a2ui"
+	"github.com/a2ui-project/a2ui/go/a2ui/v09"
 	a2uiv10 "github.com/a2ui-project/a2ui/go/a2ui/v10"
 	"github.com/a2ui-project/a2ui/go/a2uibuild"
 	"github.com/a2ui-project/a2ui/go/a2uistream"
@@ -36,15 +36,15 @@ func TestSchemaManagerGenerateSystemPrompt(t *testing.T) {
 }
 
 func TestSchemaManagerGenerateSystemPromptVersioned(t *testing.T) {
-	basic, err := BasicCatalogConfig(Version10)
+	basic, err := BasicCatalogConfig(Version1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	manager, err := NewSchemaManager(Version10, []CatalogConfig{basic}, false)
+	manager, err := NewSchemaManager(Version1, []CatalogConfig{basic}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := &a2uiv10.RendererCapabilities{V10: &a2uiv10.RendererCapabilitiesV10{
+	caps := &a2uiv10.RendererCapabilities{V1: &a2uiv10.RendererCapabilitiesV1{
 		SupportedCatalogIDs: []string{"https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"},
 	}}
 	prompt, err := manager.GenerateSystemPrompt("role", "", "", caps, nil, nil, true, false, false)
@@ -82,14 +82,14 @@ func TestSchemaManagerGenerateSystemPromptV091(t *testing.T) {
 
 func TestValidatorAcceptsV091WireVersion(t *testing.T) {
 	validator := mustBasicValidatorV091(t)
-	msg := a2ui.ServerMessage{
-		Version: a2ui.Version,
-		CreateSurface: &a2ui.CreateSurface{
+	msg := v09.ServerMessage{
+		Version: v09.Version,
+		CreateSurface: &v09.CreateSurface{
 			SurfaceID: "s1",
 			CatalogID: "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json",
 		},
 	}
-	if err := validator.ValidateMessages([]a2ui.ServerMessage{msg}); err != nil {
+	if err := validator.ValidateMessages([]v09.ServerMessage{msg}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -98,14 +98,14 @@ func TestValidatorAcceptsValidSurfaceMessages(t *testing.T) {
 	validator := mustBasicValidator(t)
 	surface := a2uibuild.NewSurface("contact", "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json").
 		Add(a2uibuild.Column("root", a2uibuild.Children("greeting"))).
-		Add(a2uibuild.Text("greeting", a2ui.StringLiteral("Hello, world!")))
+		Add(a2uibuild.Text("greeting", v09.StringLiteral("Hello, world!")))
 	if err := validator.ValidateMessages(surface.Messages()); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestValidatorAcceptsV10Examples(t *testing.T) {
-	validator := mustBasicValidatorV10(t)
+func TestValidatorAcceptsV1Examples(t *testing.T) {
+	validator := mustBasicValidatorV1(t)
 	paths, err := filepath.Glob("testdata/v1_0/basic/examples/*.json")
 	if err != nil {
 		t.Fatal(err)
@@ -126,8 +126,8 @@ func TestValidatorAcceptsV10Examples(t *testing.T) {
 	}
 }
 
-func TestValidatorAcceptsV10AgentFunctionResponseNull(t *testing.T) {
-	validator := mustBasicValidatorV10(t)
+func TestValidatorAcceptsV1AgentFunctionResponseNull(t *testing.T) {
+	validator := mustBasicValidatorV1(t)
 	msg := a2uiv10.AgentMessage{
 		Version:               a2uiv10.Version,
 		AgentFunctionResponse: ptr(a2uiv10.FunctionResponseValue("call-1", nil)),
@@ -139,18 +139,18 @@ func TestValidatorAcceptsV10AgentFunctionResponseNull(t *testing.T) {
 
 func TestValidatorRejectsDuplicateIDs(t *testing.T) {
 	validator := mustBasicValidator(t)
-	msg := a2ui.ServerMessage{
-		Version: a2ui.Version,
-		UpdateComponents: &a2ui.UpdateComponents{
+	msg := v09.ServerMessage{
+		Version: v09.Version,
+		UpdateComponents: &v09.UpdateComponents{
 			SurfaceID: "s1",
-			Components: []a2ui.Component{
+			Components: []v09.Component{
 				a2uibuild.Column("root", a2uibuild.Children("dup")),
-				a2uibuild.Text("dup", a2ui.StringLiteral("one")),
-				a2uibuild.Text("dup", a2ui.StringLiteral("two")),
+				a2uibuild.Text("dup", v09.StringLiteral("one")),
+				a2uibuild.Text("dup", v09.StringLiteral("two")),
 			},
 		},
 	}
-	err := validator.ValidateMessages([]a2ui.ServerMessage{msg})
+	err := validator.ValidateMessages([]v09.ServerMessage{msg})
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
@@ -159,18 +159,18 @@ func TestValidatorRejectsDuplicateIDs(t *testing.T) {
 
 func TestValidatorRejectsOrphanedComponent(t *testing.T) {
 	validator := mustBasicValidator(t)
-	msg := a2ui.ServerMessage{
-		Version: a2ui.Version,
-		UpdateComponents: &a2ui.UpdateComponents{
+	msg := v09.ServerMessage{
+		Version: v09.Version,
+		UpdateComponents: &v09.UpdateComponents{
 			SurfaceID: "s1",
-			Components: []a2ui.Component{
+			Components: []v09.Component{
 				a2uibuild.Column("root", a2uibuild.Children("greeting")),
-				a2uibuild.Text("greeting", a2ui.StringLiteral("hello")),
-				a2uibuild.Text("extra", a2ui.StringLiteral("orphan")),
+				a2uibuild.Text("greeting", v09.StringLiteral("hello")),
+				a2uibuild.Text("extra", v09.StringLiteral("orphan")),
 			},
 		},
 	}
-	err := validator.ValidateMessages([]a2ui.ServerMessage{msg})
+	err := validator.ValidateMessages([]v09.ServerMessage{msg})
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
@@ -179,22 +179,22 @@ func TestValidatorRejectsOrphanedComponent(t *testing.T) {
 
 func TestValidatorRejectsUnknownFunction(t *testing.T) {
 	validator := mustBasicValidator(t)
-	msg := a2ui.ServerMessage{
-		Version: a2ui.Version,
-		UpdateComponents: &a2ui.UpdateComponents{
+	msg := v09.ServerMessage{
+		Version: v09.Version,
+		UpdateComponents: &v09.UpdateComponents{
 			SurfaceID: "s1",
-			Components: []a2ui.Component{
+			Components: []v09.Component{
 				a2uibuild.Button("root",
-					a2ui.Action{
-						FunctionCall: &a2ui.FunctionCall{Call: "definitelyUnknown"},
+					v09.Action{
+						FunctionCall: &v09.FunctionCall{Call: "definitelyUnknown"},
 					},
 					"label",
 				),
-				a2uibuild.Text("label", a2ui.StringLiteral("Run")),
+				a2uibuild.Text("label", v09.StringLiteral("Run")),
 			},
 		},
 	}
-	err := validator.ValidateMessages([]a2ui.ServerMessage{msg})
+	err := validator.ValidateMessages([]v09.ServerMessage{msg})
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
@@ -203,15 +203,15 @@ func TestValidatorRejectsUnknownFunction(t *testing.T) {
 
 func TestValidatorReportsStructuredInvalidPath(t *testing.T) {
 	validator := mustBasicValidator(t)
-	msg := a2ui.ServerMessage{
-		Version: a2ui.Version,
-		UpdateDataModel: &a2ui.UpdateDataModel{
+	msg := v09.ServerMessage{
+		Version: v09.Version,
+		UpdateDataModel: &v09.UpdateDataModel{
 			SurfaceID: "s1",
 			Path:      "/bad~path",
 			Value:     "value",
 		},
 	}
-	err := validator.ValidateMessages([]a2ui.ServerMessage{msg})
+	err := validator.ValidateMessages([]v09.ServerMessage{msg})
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
@@ -220,12 +220,12 @@ func TestValidatorReportsStructuredInvalidPath(t *testing.T) {
 
 func TestParseAndValidate(t *testing.T) {
 	validator := mustBasicValidator(t)
-	msg := a2ui.ServerMessage{
-		Version: a2ui.Version,
-		UpdateComponents: &a2ui.UpdateComponents{
+	msg := v09.ServerMessage{
+		Version: v09.Version,
+		UpdateComponents: &v09.UpdateComponents{
 			SurfaceID: "s1",
-			Components: []a2ui.Component{
-				a2uibuild.Text("bad", a2ui.StringLiteral("missing root")),
+			Components: []v09.Component{
+				a2uibuild.Text("bad", v09.StringLiteral("missing root")),
 			},
 		},
 	}
@@ -255,13 +255,13 @@ func mustBasicValidator(t *testing.T) *Validator {
 	return catalog.Validator()
 }
 
-func mustBasicValidatorV10(t *testing.T) *Validator {
+func mustBasicValidatorV1(t *testing.T) *Validator {
 	t.Helper()
-	basic, err := BasicCatalogConfig(Version10)
+	basic, err := BasicCatalogConfig(Version1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	manager, err := NewSchemaManager(Version10, []CatalogConfig{basic}, false)
+	manager, err := NewSchemaManager(Version1, []CatalogConfig{basic}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,8 +307,8 @@ func assertValidationError(t *testing.T, err error, code ValidationCode, compone
 	}
 }
 
-func TestValidatorV10ComponentRefs(t *testing.T) {
-	validator := mustBasicValidatorV10(t)
+func TestValidatorV1ComponentRefs(t *testing.T) {
+	validator := mustBasicValidatorV1(t)
 	const (
 		create  = `{"version":"v1.0","createSurface":{"surfaceId":"s1"}}`
 		root    = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Card","child":"body"}]}}`

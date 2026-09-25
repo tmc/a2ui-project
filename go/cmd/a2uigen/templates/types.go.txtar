@@ -188,13 +188,13 @@ type {{.GoName}} struct {
 // Package a2uibuild provides convenience constructors for A2UI components.
 package a2uibuild
 
-import "{{.A2UIImport}}"
+import "{{.VersionImport}}"
 {{range .Components}}
-// {{.Name}} creates a new [a2ui.Component] of type {{.Name}} with the given id.
-func {{.Name}}(id string{{range .RequiredFields}}, {{.Name}} {{qualifyBuilderType .GoType}}{{end}}) a2ui.Component {
-	return a2ui.Component{
+// {{.Name}} creates a new [{{$.Pkg}}.Component] of type {{.Name}} with the given id.
+func {{.Name}}(id string{{range .RequiredFields}}, {{.Name}} {{qualify $.Pkg .GoType}}{{end}}) {{$.Pkg}}.Component {
+	return {{$.Pkg}}.Component{
 		ID:        id,
-		{{.Name}}: &a2ui.{{.Name}}Component{
+		{{.Name}}: &{{$.Pkg}}.{{.Name}}Component{
 {{- range .RequiredFields}}
 			{{.GoName}}: {{.Name}},
 {{- end}}

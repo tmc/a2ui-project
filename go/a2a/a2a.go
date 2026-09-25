@@ -14,12 +14,12 @@ const (
 	MIMETypeKey              = "mimeType"
 	A2UIMIMETypeV09          = "application/json+a2ui"
 	A2UIMIMETypeV091         = "application/a2ui+json"
-	A2UIMIMETypeV10          = "application/a2ui+json"
+	A2UIMIMETypeV1           = "application/a2ui+json"
 	MIMETypeV09              = A2UIMIMETypeV09
 	MIMETypeV091             = A2UIMIMETypeV091
-	MIMETypeV10              = A2UIMIMETypeV10
+	MIMETypeV1               = A2UIMIMETypeV1
 	A2UIMIMEType             = A2UIMIMETypeV09
-	A2UIMIMETypeLatest       = A2UIMIMETypeV10
+	A2UIMIMETypeLatest       = A2UIMIMETypeV1
 	MIMEType                 = A2UIMIMEType
 	MIMETypeLatest           = A2UIMIMETypeLatest
 	AcceptsInlineCatalogsKey = "acceptsInlineCatalogs"
@@ -138,7 +138,7 @@ func IsPart(part DataPart) bool {
 
 // IsA2UIMIMEType reports whether mimeType is a recognized A2UI MIME type.
 func IsA2UIMIMEType(mimeType string) bool {
-	return mimeType == A2UIMIMETypeV09 || mimeType == A2UIMIMETypeV091 || mimeType == A2UIMIMETypeV10
+	return mimeType == A2UIMIMETypeV09 || mimeType == A2UIMIMETypeV091 || mimeType == A2UIMIMETypeV1
 }
 
 // MIMETypeForVersion returns the A2A MIME type used by an A2UI version.

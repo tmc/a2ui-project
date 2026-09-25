@@ -10,7 +10,7 @@ import (
 	a2uiv10 "github.com/a2ui-project/a2ui/go/a2ui/v10"
 )
 
-func (v *Validator) parseMessagesV10(data []byte) ([]a2uiv10.AgentMessage, error) {
+func (v *Validator) parseMessagesV1(data []byte) ([]a2uiv10.AgentMessage, error) {
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
 		return nil, fmt.Errorf("schema: empty payload")
@@ -29,7 +29,7 @@ func (v *Validator) parseMessagesV10(data []byte) ([]a2uiv10.AgentMessage, error
 	return []a2uiv10.AgentMessage{msg}, nil
 }
 
-func (v *Validator) validateMessagesV10(msgs []a2uiv10.AgentMessage) error {
+func (v *Validator) validateMessagesV1(msgs []a2uiv10.AgentMessage) error {
 	if len(msgs) == 0 {
 		return fmt.Errorf("schema: no messages to validate")
 	}
@@ -39,7 +39,7 @@ func (v *Validator) validateMessagesV10(msgs []a2uiv10.AgentMessage) error {
 	surfaceComponents := make(map[string]map[string]bool)
 	pending := make(map[string][]componentRef)
 	for i, msg := range msgs {
-		if err := v.validateMessageV10(msg); err != nil {
+		if err := v.validateMessageV1(msg); err != nil {
 			return fmt.Errorf("schema: message[%d]: %w", i, err)
 		}
 		switch {
@@ -49,7 +49,7 @@ func (v *Validator) validateMessagesV10(msgs []a2uiv10.AgentMessage) error {
 			surfaceComponents[id] = known
 			pending[id] = nil
 			if len(msg.CreateSurface.Components) > 0 {
-				refs, err := v.validateComponentsV10(msg.CreateSurface.Components, nil)
+				refs, err := v.validateComponentsV1(msg.CreateSurface.Components, nil)
 				if err != nil {
 					return fmt.Errorf("createSurface: %w", err)
 				}
@@ -61,7 +61,7 @@ func (v *Validator) validateMessagesV10(msgs []a2uiv10.AgentMessage) error {
 		case msg.UpdateComponents != nil:
 			id := msg.UpdateComponents.SurfaceID
 			known := surfaceComponents[id]
-			refs, err := v.validateComponentsV10(msg.UpdateComponents.Components, known)
+			refs, err := v.validateComponentsV1(msg.UpdateComponents.Components, known)
 			if err != nil {
 				return fmt.Errorf("updateComponents: %w", err)
 			}
@@ -96,15 +96,15 @@ type componentRef struct {
 	from, to string
 }
 
-func (v *Validator) validateMessageV10(msg a2uiv10.AgentMessage) error {
-	wantVersion := Version10
+func (v *Validator) validateMessageV1(msg a2uiv10.AgentMessage) error {
+	wantVersion := Version1
 	if v.catalog != nil {
 		wantVersion = v.catalog.Version
 	}
 	if msg.Version != string(wantVersion) {
 		return fmt.Errorf("version = %q, want %q", msg.Version, wantVersion)
 	}
-	switch countSetV10(msg.CreateSurface != nil, msg.UpdateComponents != nil, msg.UpdateDataModel != nil, msg.DeleteSurface != nil, msg.CallRendererFunction != nil, msg.AgentFunctionResponse != nil) {
+	switch countSetV1(msg.CreateSurface != nil, msg.UpdateComponents != nil, msg.UpdateDataModel != nil, msg.DeleteSurface != nil, msg.CallRendererFunction != nil, msg.AgentFunctionResponse != nil) {
 	case 1:
 	case 0:
 		return fmt.Errorf("message has no payload")
@@ -145,23 +145,23 @@ func (v *Validator) validateMessageV10(msg a2uiv10.AgentMessage) error {
 		if call.CallFunction.CatalogID == "" {
 			return fmt.Errorf("callRendererFunction.callFunction.catalogId is required")
 		}
-		if err := v.validateFunctionCallV10(call.CallFunction, 0); err != nil {
+		if err := v.validateFunctionCallV1(call.CallFunction, 0); err != nil {
 			return fmt.Errorf("callRendererFunction.callFunction: %w", err)
 		}
 	case msg.AgentFunctionResponse != nil:
-		if err := validateFunctionResponseV10(*msg.AgentFunctionResponse); err != nil {
+		if err := validateFunctionResponseV1(*msg.AgentFunctionResponse); err != nil {
 			return fmt.Errorf("agentFunctionResponse: %w", err)
 		}
 	}
 	return nil
 }
 
-// validateComponentsV10 validates components and returns the references
+// validateComponentsV1 validates components and returns the references
 // to components that are neither in components nor in known.
-func (v *Validator) validateComponentsV10(components []a2uiv10.Component, known map[string]bool) ([]componentRef, error) {
+func (v *Validator) validateComponentsV1(components []a2uiv10.Component, known map[string]bool) ([]componentRef, error) {
 	ids := make(map[string]int, len(components))
 	for i, component := range components {
-		if err := v.validateComponentV10(component); err != nil {
+		if err := v.validateComponentV1(component); err != nil {
 			return nil, fmt.Errorf("component[%d] (%s): %w", i, component.ID, err)
 		}
 		if _, ok := ids[component.ID]; ok {
@@ -172,7 +172,7 @@ func (v *Validator) validateComponentsV10(components []a2uiv10.Component, known 
 	var unknown []componentRef
 	graph := make(map[string][]string, len(components))
 	for _, component := range components {
-		refs, err := componentRefsV10(component)
+		refs, err := componentRefsV1(component)
 		if err != nil {
 			return nil, fmt.Errorf("component %q: %w", component.ID, err)
 		}
@@ -199,7 +199,7 @@ func (v *Validator) validateComponentsV10(components []a2uiv10.Component, known 
 	return unknown, nil
 }
 
-func (v *Validator) validateComponentV10(component a2uiv10.Component) error {
+func (v *Validator) validateComponentV1(component a2uiv10.Component) error {
 	if component.ID == "" {
 		return fmt.Errorf("id is required")
 	}
@@ -213,18 +213,18 @@ func (v *Validator) validateComponentV10(component a2uiv10.Component) error {
 		}
 	}
 	for _, check := range component.Checks {
-		if err := v.validateDynamicValidationResultV10(check.Condition, 0); err != nil {
+		if err := v.validateDynamicValidationResultV1(check.Condition, 0); err != nil {
 			return fmt.Errorf("check condition: %w", err)
 		}
 	}
 	if component.Accessibility != nil {
 		if component.Accessibility.Label != nil {
-			if err := v.validateDynamicStringV10(*component.Accessibility.Label, 0); err != nil {
+			if err := v.validateDynamicStringV1(*component.Accessibility.Label, 0); err != nil {
 				return fmt.Errorf("accessibility.label: %w", err)
 			}
 		}
 		if component.Accessibility.Description != nil {
-			if err := v.validateDynamicStringV10(*component.Accessibility.Description, 0); err != nil {
+			if err := v.validateDynamicStringV1(*component.Accessibility.Description, 0); err != nil {
 				return fmt.Errorf("accessibility.description: %w", err)
 			}
 		}
@@ -234,28 +234,28 @@ func (v *Validator) validateComponentV10(component a2uiv10.Component) error {
 			return fmt.Errorf("accessibility.live = %q is not allowed", component.Accessibility.Live)
 		}
 		if component.Accessibility.Hidden != nil {
-			if err := v.validateDynamicBooleanV10(*component.Accessibility.Hidden, 0); err != nil {
+			if err := v.validateDynamicBooleanV1(*component.Accessibility.Hidden, 0); err != nil {
 				return fmt.Errorf("accessibility.hidden: %w", err)
 			}
 		}
 	}
 	switch {
 	case component.Text != nil:
-		return v.validateTextComponentV10(*component.Text)
+		return v.validateTextComponentV1(*component.Text)
 	case component.Image != nil:
-		return v.validateImageComponentV10(*component.Image)
+		return v.validateImageComponentV1(*component.Image)
 	case component.Icon != nil:
-		return v.validateIconComponentV10(*component.Icon)
+		return v.validateIconComponentV1(*component.Icon)
 	case component.Video != nil:
-		return v.validateVideoComponentV10(*component.Video)
+		return v.validateVideoComponentV1(*component.Video)
 	case component.AudioPlayer != nil:
-		return v.validateAudioPlayerComponentV10(*component.AudioPlayer)
+		return v.validateAudioPlayerComponentV1(*component.AudioPlayer)
 	case component.Row != nil:
-		return v.validateContainerChildrenV10(component.Row.Children)
+		return v.validateContainerChildrenV1(component.Row.Children)
 	case component.Column != nil:
-		return v.validateContainerChildrenV10(component.Column.Children)
+		return v.validateContainerChildrenV1(component.Column.Children)
 	case component.List != nil:
-		return v.validateContainerChildrenV10(component.List.Children)
+		return v.validateContainerChildrenV1(component.List.Children)
 	case component.Card != nil:
 		if component.Card.Child == "" {
 			return fmt.Errorf("card.child is required")
@@ -268,7 +268,7 @@ func (v *Validator) validateComponentV10(component a2uiv10.Component) error {
 			if tab.Child == "" {
 				return fmt.Errorf("tabs.child is required")
 			}
-			if err := v.validateDynamicStringV10(tab.Title, 0); err != nil {
+			if err := v.validateDynamicStringV1(tab.Title, 0); err != nil {
 				return fmt.Errorf("tabs.title: %w", err)
 			}
 		}
@@ -282,28 +282,28 @@ func (v *Validator) validateComponentV10(component a2uiv10.Component) error {
 		if component.Button.Child == "" {
 			return fmt.Errorf("button.child is required")
 		}
-		if err := v.validateActionV10(component.Button.Action, 0); err != nil {
+		if err := v.validateActionV1(component.Button.Action, 0); err != nil {
 			return fmt.Errorf("button.action: %w", err)
 		}
 	case component.TextField != nil:
-		if err := v.validateDynamicStringV10(component.TextField.Label, 0); err != nil {
+		if err := v.validateDynamicStringV1(component.TextField.Label, 0); err != nil {
 			return fmt.Errorf("textField.label: %w", err)
 		}
 		if component.TextField.Value != nil {
-			if err := v.validateDynamicStringV10(*component.TextField.Value, 0); err != nil {
+			if err := v.validateDynamicStringV1(*component.TextField.Value, 0); err != nil {
 				return fmt.Errorf("textField.value: %w", err)
 			}
 		}
 		if component.TextField.Placeholder != nil {
-			if err := v.validateDynamicStringV10(*component.TextField.Placeholder, 0); err != nil {
+			if err := v.validateDynamicStringV1(*component.TextField.Placeholder, 0); err != nil {
 				return fmt.Errorf("textField.placeholder: %w", err)
 			}
 		}
 	case component.CheckBox != nil:
-		if err := v.validateDynamicStringV10(component.CheckBox.Label, 0); err != nil {
+		if err := v.validateDynamicStringV1(component.CheckBox.Label, 0); err != nil {
 			return fmt.Errorf("checkBox.label: %w", err)
 		}
-		if err := v.validateDynamicBooleanV10(component.CheckBox.Value, 0); err != nil {
+		if err := v.validateDynamicBooleanV1(component.CheckBox.Value, 0); err != nil {
 			return fmt.Errorf("checkBox.value: %w", err)
 		}
 	case component.ChoicePicker != nil:
@@ -311,7 +311,7 @@ func (v *Validator) validateComponentV10(component a2uiv10.Component) error {
 			return fmt.Errorf("choicePicker.options must not be empty")
 		}
 		if component.ChoicePicker.Label != nil {
-			if err := v.validateDynamicStringV10(*component.ChoicePicker.Label, 0); err != nil {
+			if err := v.validateDynamicStringV1(*component.ChoicePicker.Label, 0); err != nil {
 				return fmt.Errorf("choicePicker.label: %w", err)
 			}
 		}
@@ -319,24 +319,24 @@ func (v *Validator) validateComponentV10(component a2uiv10.Component) error {
 			if option.Value == "" {
 				return fmt.Errorf("choicePicker option value is required")
 			}
-			if err := v.validateDynamicStringV10(option.Label, 0); err != nil {
+			if err := v.validateDynamicStringV1(option.Label, 0); err != nil {
 				return fmt.Errorf("choicePicker option label: %w", err)
 			}
 		}
-		if err := v.validateDynamicStringListV10(component.ChoicePicker.Value, 0); err != nil {
+		if err := v.validateDynamicStringListV1(component.ChoicePicker.Value, 0); err != nil {
 			return fmt.Errorf("choicePicker.value: %w", err)
 		}
 	case component.Slider != nil:
-		if err := v.validateDynamicNumberV10(component.Slider.Value, 0); err != nil {
+		if err := v.validateDynamicNumberV1(component.Slider.Value, 0); err != nil {
 			return fmt.Errorf("slider.value: %w", err)
 		}
 		if component.Slider.Label != nil {
-			if err := v.validateDynamicStringV10(*component.Slider.Label, 0); err != nil {
+			if err := v.validateDynamicStringV1(*component.Slider.Label, 0); err != nil {
 				return fmt.Errorf("slider.label: %w", err)
 			}
 		}
 	case component.DateTimeInput != nil:
-		if err := v.validateDynamicStringV10(component.DateTimeInput.Value, 0); err != nil {
+		if err := v.validateDynamicStringV1(component.DateTimeInput.Value, 0); err != nil {
 			return fmt.Errorf("dateTimeInput.value: %w", err)
 		}
 		for name, value := range map[string]*a2uiv10.DynamicString{
@@ -345,7 +345,7 @@ func (v *Validator) validateComponentV10(component a2uiv10.Component) error {
 			"min":   component.DateTimeInput.Min,
 		} {
 			if value != nil {
-				if err := v.validateDynamicStringV10(*value, 0); err != nil {
+				if err := v.validateDynamicStringV1(*value, 0); err != nil {
 					return fmt.Errorf("dateTimeInput.%s: %w", name, err)
 				}
 			}
@@ -354,50 +354,50 @@ func (v *Validator) validateComponentV10(component a2uiv10.Component) error {
 	return nil
 }
 
-func (v *Validator) validateTextComponentV10(component a2uiv10.TextComponent) error {
-	return v.validateDynamicStringV10(component.Text, 0)
+func (v *Validator) validateTextComponentV1(component a2uiv10.TextComponent) error {
+	return v.validateDynamicStringV1(component.Text, 0)
 }
 
-func (v *Validator) validateImageComponentV10(component a2uiv10.ImageComponent) error {
-	if err := v.validateDynamicStringV10(component.URL, 0); err != nil {
+func (v *Validator) validateImageComponentV1(component a2uiv10.ImageComponent) error {
+	if err := v.validateDynamicStringV1(component.URL, 0); err != nil {
 		return err
 	}
 	if component.Description != nil {
-		if err := v.validateDynamicStringV10(*component.Description, 0); err != nil {
+		if err := v.validateDynamicStringV1(*component.Description, 0); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (v *Validator) validateIconComponentV10(component a2uiv10.IconComponent) error {
+func (v *Validator) validateIconComponentV1(component a2uiv10.IconComponent) error {
 	if component.Name.Name == nil && component.Name.Path == nil {
 		return fmt.Errorf("icon.name is required")
 	}
 	return nil
 }
 
-func (v *Validator) validateVideoComponentV10(component a2uiv10.VideoComponent) error {
-	if err := v.validateDynamicStringV10(component.URL, 0); err != nil {
+func (v *Validator) validateVideoComponentV1(component a2uiv10.VideoComponent) error {
+	if err := v.validateDynamicStringV1(component.URL, 0); err != nil {
 		return err
 	}
 	if component.PosterURL != nil {
-		return v.validateDynamicStringV10(*component.PosterURL, 0)
+		return v.validateDynamicStringV1(*component.PosterURL, 0)
 	}
 	return nil
 }
 
-func (v *Validator) validateAudioPlayerComponentV10(component a2uiv10.AudioPlayerComponent) error {
-	if err := v.validateDynamicStringV10(component.URL, 0); err != nil {
+func (v *Validator) validateAudioPlayerComponentV1(component a2uiv10.AudioPlayerComponent) error {
+	if err := v.validateDynamicStringV1(component.URL, 0); err != nil {
 		return err
 	}
 	if component.Description != nil {
-		return v.validateDynamicStringV10(*component.Description, 0)
+		return v.validateDynamicStringV1(*component.Description, 0)
 	}
 	return nil
 }
 
-func (v *Validator) validateContainerChildrenV10(children a2uiv10.ChildList) error {
+func (v *Validator) validateContainerChildrenV1(children a2uiv10.ChildList) error {
 	if len(children.IDs) == 0 && children.Template == nil {
 		return fmt.Errorf("children must not be empty")
 	}
@@ -412,7 +412,7 @@ func (v *Validator) validateContainerChildrenV10(children a2uiv10.ChildList) err
 	return nil
 }
 
-func (v *Validator) validateActionV10(action a2uiv10.Action, depth int) error {
+func (v *Validator) validateActionV1(action a2uiv10.Action, depth int) error {
 	switch {
 	case action.Event != nil && action.FunctionCall != nil:
 		return fmt.Errorf("action must not have both event and functionCall")
@@ -421,17 +421,17 @@ func (v *Validator) validateActionV10(action a2uiv10.Action, depth int) error {
 			return fmt.Errorf("event.name is required")
 		}
 		if action.Event.UserMessage != nil {
-			if err := v.validateDynamicStringV10(*action.Event.UserMessage, depth+1); err != nil {
+			if err := v.validateDynamicStringV1(*action.Event.UserMessage, depth+1); err != nil {
 				return fmt.Errorf("event.userMessage: %w", err)
 			}
 		}
 		for key, value := range action.Event.Context {
-			if err := v.validateDynamicValueV10(value, depth+1); err != nil {
+			if err := v.validateDynamicValueV1(value, depth+1); err != nil {
 				return fmt.Errorf("event.context[%q]: %w", key, err)
 			}
 		}
 	case action.FunctionCall != nil:
-		if err := v.validateFunctionCallV10(*action.FunctionCall, depth+1); err != nil {
+		if err := v.validateFunctionCallV1(*action.FunctionCall, depth+1); err != nil {
 			return err
 		}
 	default:
@@ -440,79 +440,79 @@ func (v *Validator) validateActionV10(action a2uiv10.Action, depth int) error {
 	return nil
 }
 
-func (v *Validator) validateDynamicStringV10(value a2uiv10.DynamicString, depth int) error {
+func (v *Validator) validateDynamicStringV1(value a2uiv10.DynamicString, depth int) error {
 	switch {
 	case value.Literal != nil:
 		return nil
 	case value.Binding != nil:
 		return validatePath(value.Binding.Path, false)
 	case value.FunctionCall != nil:
-		return v.validateFunctionCallV10(*value.FunctionCall, depth+1)
+		return v.validateFunctionCallV1(*value.FunctionCall, depth+1)
 	default:
 		return fmt.Errorf("dynamic string has no value")
 	}
 }
 
-func (v *Validator) validateDynamicNumberV10(value a2uiv10.DynamicNumber, depth int) error {
+func (v *Validator) validateDynamicNumberV1(value a2uiv10.DynamicNumber, depth int) error {
 	switch {
 	case value.Literal != nil:
 		return nil
 	case value.Binding != nil:
 		return validatePath(value.Binding.Path, false)
 	case value.FunctionCall != nil:
-		return v.validateFunctionCallV10(*value.FunctionCall, depth+1)
+		return v.validateFunctionCallV1(*value.FunctionCall, depth+1)
 	default:
 		return fmt.Errorf("dynamic number has no value")
 	}
 }
 
-func (v *Validator) validateDynamicBooleanV10(value a2uiv10.DynamicBoolean, depth int) error {
+func (v *Validator) validateDynamicBooleanV1(value a2uiv10.DynamicBoolean, depth int) error {
 	switch {
 	case value.Literal != nil:
 		return nil
 	case value.Binding != nil:
 		return validatePath(value.Binding.Path, false)
 	case value.FunctionCall != nil:
-		return v.validateFunctionCallV10(*value.FunctionCall, depth+1)
+		return v.validateFunctionCallV1(*value.FunctionCall, depth+1)
 	default:
 		return fmt.Errorf("dynamic boolean has no value")
 	}
 }
 
-func (v *Validator) validateDynamicStringListV10(value a2uiv10.DynamicStringList, depth int) error {
+func (v *Validator) validateDynamicStringListV1(value a2uiv10.DynamicStringList, depth int) error {
 	switch {
 	case value.Literal != nil:
 		return nil
 	case value.Binding != nil:
 		return validatePath(value.Binding.Path, false)
 	case value.FunctionCall != nil:
-		return v.validateFunctionCallV10(*value.FunctionCall, depth+1)
+		return v.validateFunctionCallV1(*value.FunctionCall, depth+1)
 	default:
 		return fmt.Errorf("dynamic string list has no value")
 	}
 }
 
-func (v *Validator) validateDynamicValueV10(value a2uiv10.DynamicValue, depth int) error {
+func (v *Validator) validateDynamicValueV1(value a2uiv10.DynamicValue, depth int) error {
 	switch {
 	case value.String != nil, value.Number != nil, value.Bool != nil, value.Array != nil:
 		return nil
 	case value.Binding != nil:
 		return validatePath(value.Binding.Path, false)
 	case value.FunctionCall != nil:
-		return v.validateFunctionCallV10(*value.FunctionCall, depth+1)
+		return v.validateFunctionCallV1(*value.FunctionCall, depth+1)
 	default:
 		return fmt.Errorf("dynamic value has no value")
 	}
 }
 
-func (v *Validator) validateDynamicValidationResultV10(value a2uiv10.DynamicValidationResult, depth int) error {
+func (v *Validator) validateDynamicValidationResultV1(value a2uiv10.DynamicValidationResult, depth int) error {
 	switch {
 	case value.Binding != nil && value.FunctionCall != nil:
 		return fmt.Errorf("condition must not have both path and call")
 	case value.Binding != nil:
 		return validatePath(value.Binding.Path, false)
 	case value.FunctionCall != nil:
-		return v.validateFunctionCallV10(*value.FunctionCall, depth+1)
+		return v.validateFunctionCallV1(*value.FunctionCall, depth+1)
 	default:
 		return fmt.Errorf("condition has no value")
 	}
@@ -521,7 +521,7 @@ func (v *Validator) validateDynamicValidationResultV10(value a2uiv10.DynamicVali
 // indexFunction is the v1.0 system function available in list templates.
 const indexFunction = "@index"
 
-func (v *Validator) validateFunctionCallV10(call a2uiv10.FunctionCall, depth int) error {
+func (v *Validator) validateFunctionCallV1(call a2uiv10.FunctionCall, depth int) error {
 	if depth > 32 {
 		return fmt.Errorf("function call recursion depth exceeded")
 	}
@@ -534,14 +534,14 @@ func (v *Validator) validateFunctionCallV10(call a2uiv10.FunctionCall, depth int
 		}
 	}
 	for key, arg := range call.Args {
-		if err := v.validateFunctionArgV10(arg, depth+1); err != nil {
+		if err := v.validateFunctionArgV1(arg, depth+1); err != nil {
 			return fmt.Errorf("function arg %q: %w", key, err)
 		}
 	}
 	return nil
 }
 
-func (v *Validator) validateFunctionArgV10(arg any, depth int) error {
+func (v *Validator) validateFunctionArgV1(arg any, depth int) error {
 	switch value := arg.(type) {
 	case nil, string, bool, float64, int:
 		return nil
@@ -549,7 +549,7 @@ func (v *Validator) validateFunctionArgV10(arg any, depth int) error {
 		return nil
 	case []any:
 		for i, item := range value {
-			if err := v.validateFunctionArgV10(item, depth+1); err != nil {
+			if err := v.validateFunctionArgV1(item, depth+1); err != nil {
 				return fmt.Errorf("[%d]: %w", i, err)
 			}
 		}
@@ -568,7 +568,7 @@ func (v *Validator) validateFunctionArgV10(arg any, depth int) error {
 			if err := json.Unmarshal(data, &call); err != nil {
 				return err
 			}
-			return v.validateFunctionCallV10(call, depth+1)
+			return v.validateFunctionCallV1(call, depth+1)
 		}
 		keys := make([]string, 0, len(value))
 		for key := range value {
@@ -576,27 +576,27 @@ func (v *Validator) validateFunctionArgV10(arg any, depth int) error {
 		}
 		slices.Sort(keys)
 		for _, key := range keys {
-			if err := v.validateFunctionArgV10(value[key], depth+1); err != nil {
+			if err := v.validateFunctionArgV1(value[key], depth+1); err != nil {
 				return fmt.Errorf("%s: %w", key, err)
 			}
 		}
 		return nil
 	case a2uiv10.DynamicValue:
-		return v.validateDynamicValueV10(value, depth+1)
+		return v.validateDynamicValueV1(value, depth+1)
 	case a2uiv10.DynamicString:
-		return v.validateDynamicStringV10(value, depth+1)
+		return v.validateDynamicStringV1(value, depth+1)
 	case a2uiv10.DynamicNumber:
-		return v.validateDynamicNumberV10(value, depth+1)
+		return v.validateDynamicNumberV1(value, depth+1)
 	case a2uiv10.DynamicBoolean:
-		return v.validateDynamicBooleanV10(value, depth+1)
+		return v.validateDynamicBooleanV1(value, depth+1)
 	case a2uiv10.DynamicStringList:
-		return v.validateDynamicStringListV10(value, depth+1)
+		return v.validateDynamicStringListV1(value, depth+1)
 	default:
 		return nil
 	}
 }
 
-func validateFunctionResponseV10(response a2uiv10.FunctionResponse) error {
+func validateFunctionResponseV1(response a2uiv10.FunctionResponse) error {
 	if response.FunctionCallID == "" {
 		return fmt.Errorf("functionCallId is required")
 	}
@@ -620,18 +620,18 @@ func validateFunctionResponseV10(response a2uiv10.FunctionResponse) error {
 	}
 }
 
-func componentRefsV10(component a2uiv10.Component) ([]string, error) {
+func componentRefsV1(component a2uiv10.Component) ([]string, error) {
 	switch {
 	case component.Button != nil:
 		return []string{component.Button.Child}, nil
 	case component.Card != nil:
 		return []string{component.Card.Child}, nil
 	case component.Column != nil:
-		return childListRefsV10(component.Column.Children)
+		return childListRefsV1(component.Column.Children)
 	case component.List != nil:
-		return childListRefsV10(component.List.Children)
+		return childListRefsV1(component.List.Children)
 	case component.Row != nil:
-		return childListRefsV10(component.Row.Children)
+		return childListRefsV1(component.Row.Children)
 	case component.Modal != nil:
 		return []string{component.Modal.Trigger, component.Modal.Content}, nil
 	case component.Tabs != nil:
@@ -645,14 +645,14 @@ func componentRefsV10(component a2uiv10.Component) ([]string, error) {
 	}
 }
 
-func childListRefsV10(children a2uiv10.ChildList) ([]string, error) {
+func childListRefsV1(children a2uiv10.ChildList) ([]string, error) {
 	if children.Template != nil {
 		return []string{children.Template.ComponentID}, nil
 	}
 	return append([]string(nil), children.IDs...), nil
 }
 
-func countSetV10(values ...bool) int {
+func countSetV1(values ...bool) int {
 	var count int
 	for _, value := range values {
 		if value {

@@ -1,6 +1,3 @@
-// Package a2uibuild provides convenience constructors and a value builder for the
-// root A2UI compatibility API.
-//
-// The root API currently targets A2UI v0.9. Code that needs v1.0 message
-// types should import the version package directly.
+// Package a2uibuild provides convenience constructors and a surface builder
+// for A2UI v0.9 ([github.com/a2ui-project/a2ui/go/a2ui/v09]).
 package a2uibuild

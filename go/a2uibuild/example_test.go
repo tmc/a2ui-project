@@ -4,14 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/a2ui-project/a2ui/go/a2ui"
+	"github.com/a2ui-project/a2ui/go/a2ui/v09"
 	"github.com/a2ui-project/a2ui/go/a2uibuild"
 )
 
 func Example() {
 	s := a2uibuild.NewSurface("contact", "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json").
 		Add(a2uibuild.Column("root", a2uibuild.Children("greeting"))).
-		Add(a2uibuild.Text("greeting", a2ui.StringLiteral("Hello, world!")))
+		Add(a2uibuild.Text("greeting", v09.StringLiteral("Hello, world!")))
 
 	for _, msg := range s.Messages() {
 		data, _ := json.Marshal(msg)
