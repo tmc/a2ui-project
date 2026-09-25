@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/a2ui-project/a2ui/go/a2ui/v09"
-	a2uiv10 "github.com/a2ui-project/a2ui/go/a2ui/v10"
+	"github.com/a2ui-project/a2ui/go/a2ui"
+	v09 "github.com/a2ui-project/a2ui/go/a2ui/v09"
 	"github.com/a2ui-project/a2ui/go/a2uibuild"
 	"github.com/a2ui-project/a2ui/go/a2uistream"
 )
@@ -44,7 +44,7 @@ func TestSchemaManagerGenerateSystemPromptVersioned(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	caps := &a2uiv10.RendererCapabilities{V1: &a2uiv10.RendererCapabilitiesV1{
+	caps := &a2ui.RendererCapabilities{V1: &a2ui.RendererCapabilitiesV1{
 		SupportedCatalogIDs: []string{"https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"},
 	}}
 	prompt, err := manager.GenerateSystemPrompt("role", "", "", caps, nil, nil, true, false, false)
@@ -95,11 +95,11 @@ func TestValidatorAcceptsV091WireVersion(t *testing.T) {
 }
 
 func TestValidatorAcceptsValidSurfaceMessages(t *testing.T) {
-	validator := mustBasicValidator(t)
-	surface := a2uibuild.NewSurface("contact", "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json").
+	validator := mustBasicValidatorV1(t)
+	surface := a2uibuild.NewSurface("contact", "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json").
 		Add(a2uibuild.Column("root", a2uibuild.Children("greeting"))).
-		Add(a2uibuild.Text("greeting", v09.StringLiteral("Hello, world!")))
-	if err := validator.ValidateMessages(surface.Messages()); err != nil {
+		Add(a2uibuild.Text("greeting", a2ui.StringLiteral("Hello, world!")))
+	if err := validator.ValidateVersionMessages(surface.Messages()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -128,11 +128,11 @@ func TestValidatorAcceptsV1Examples(t *testing.T) {
 
 func TestValidatorAcceptsV1AgentFunctionResponseNull(t *testing.T) {
 	validator := mustBasicValidatorV1(t)
-	msg := a2uiv10.AgentMessage{
-		Version:               a2uiv10.Version,
-		AgentFunctionResponse: ptr(a2uiv10.FunctionResponseValue("call-1", nil)),
+	msg := a2ui.AgentMessage{
+		Version:               a2ui.Version,
+		AgentFunctionResponse: ptr(a2ui.FunctionResponseValue("call-1", nil)),
 	}
-	if err := validator.ValidateVersionMessages([]a2uiv10.AgentMessage{msg}); err != nil {
+	if err := validator.ValidateVersionMessages([]a2ui.AgentMessage{msg}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -144,9 +144,9 @@ func TestValidatorRejectsDuplicateIDs(t *testing.T) {
 		UpdateComponents: &v09.UpdateComponents{
 			SurfaceID: "s1",
 			Components: []v09.Component{
-				a2uibuild.Column("root", a2uibuild.Children("dup")),
-				a2uibuild.Text("dup", v09.StringLiteral("one")),
-				a2uibuild.Text("dup", v09.StringLiteral("two")),
+				column09("root", children09("dup")),
+				text09("dup", v09.StringLiteral("one")),
+				text09("dup", v09.StringLiteral("two")),
 			},
 		},
 	}
@@ -164,9 +164,9 @@ func TestValidatorRejectsOrphanedComponent(t *testing.T) {
 		UpdateComponents: &v09.UpdateComponents{
 			SurfaceID: "s1",
 			Components: []v09.Component{
-				a2uibuild.Column("root", a2uibuild.Children("greeting")),
-				a2uibuild.Text("greeting", v09.StringLiteral("hello")),
-				a2uibuild.Text("extra", v09.StringLiteral("orphan")),
+				column09("root", children09("greeting")),
+				text09("greeting", v09.StringLiteral("hello")),
+				text09("extra", v09.StringLiteral("orphan")),
 			},
 		},
 	}
@@ -184,13 +184,13 @@ func TestValidatorRejectsUnknownFunction(t *testing.T) {
 		UpdateComponents: &v09.UpdateComponents{
 			SurfaceID: "s1",
 			Components: []v09.Component{
-				a2uibuild.Button("root",
+				button09("root",
 					v09.Action{
 						FunctionCall: &v09.FunctionCall{Call: "definitelyUnknown"},
 					},
 					"label",
 				),
-				a2uibuild.Text("label", v09.StringLiteral("Run")),
+				text09("label", v09.StringLiteral("Run")),
 			},
 		},
 	}
@@ -225,7 +225,7 @@ func TestParseAndValidate(t *testing.T) {
 		UpdateComponents: &v09.UpdateComponents{
 			SurfaceID: "s1",
 			Components: []v09.Component{
-				a2uibuild.Text("bad", v09.StringLiteral("missing root")),
+				text09("bad", v09.StringLiteral("missing root")),
 			},
 		},
 	}
@@ -333,4 +333,20 @@ func TestValidatorV1ComponentRefs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func column09(id string, children v09.ChildList) v09.Component {
+	return v09.Component{ID: id, Column: &v09.ColumnComponent{Children: children}}
+}
+
+func text09(id string, text v09.DynamicString) v09.Component {
+	return v09.Component{ID: id, Text: &v09.TextComponent{Text: text}}
+}
+
+func button09(id string, action v09.Action, child string) v09.Component {
+	return v09.Component{ID: id, Button: &v09.ButtonComponent{Action: action, Child: child}}
+}
+
+func children09(ids ...string) v09.ChildList {
+	return v09.ChildList{IDs: ids}
 }

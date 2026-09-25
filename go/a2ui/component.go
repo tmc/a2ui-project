@@ -1,4 +1,4 @@
-package v10
+package a2ui
 
 // Component represents any A2UI component in the component tree.
 // Exactly one of the concrete type fields is non-nil.

@@ -1,4 +1,4 @@
-package v10
+package a2ui
 
 // Version is the A2UI protocol version implemented by this package.
 const Version = "v1.0"

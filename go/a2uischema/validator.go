@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"slices"
 
-	"github.com/a2ui-project/a2ui/go/a2ui/v09"
-	a2uiv10 "github.com/a2ui-project/a2ui/go/a2ui/v10"
+	"github.com/a2ui-project/a2ui/go/a2ui"
+	v09 "github.com/a2ui-project/a2ui/go/a2ui/v09"
 )
 
 var (
@@ -111,7 +111,7 @@ func (v *Validator) ValidateVersionMessages(msgs any) error {
 	switch msgs := msgs.(type) {
 	case []v09.ServerMessage:
 		return v.ValidateMessages(msgs)
-	case []a2uiv10.AgentMessage:
+	case []a2ui.AgentMessage:
 		return v.validateMessagesV1(msgs)
 	default:
 		return fmt.Errorf("schema: unsupported messages type %T", msgs)

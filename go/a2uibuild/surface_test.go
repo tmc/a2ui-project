@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/a2ui-project/a2ui/go/a2ui/v09"
+	"github.com/a2ui-project/a2ui/go/a2ui"
 )
 
 func TestSurfaceMessagesMarshal(t *testing.T) {
 	s := NewSurface("contact", "catalog").
 		Add(Column("root", Children("greeting"))).
-		Add(Text("greeting", v09.StringLiteral("Hello, world!")))
+		Add(Text("greeting", a2ui.StringLiteral("Hello, world!")))
 
 	for i, msg := range s.Messages() {
 		if _, err := json.Marshal(msg); err != nil {
@@ -30,8 +30,8 @@ func TestChildrenClonesIDs(t *testing.T) {
 
 func TestSurfaceBuilderDoesNotMutateBase(t *testing.T) {
 	base := NewSurface("contact", "catalog")
-	left := base.Add(Text("left", v09.StringLiteral("left")))
-	right := base.Add(Text("right", v09.StringLiteral("right")))
+	left := base.Add(Text("left", a2ui.StringLiteral("left")))
+	right := base.Add(Text("right", a2ui.StringLiteral("right")))
 
 	if got := len(base.Messages()); got != 1 {
 		t.Fatalf("base messages = %d, want 1", got)

@@ -52,15 +52,15 @@ func TestResolveOutputConfigRootLayout(t *testing.T) {
 func TestResolveOutputConfigExplicitA2UIImport(t *testing.T) {
 	dir := t.TempDir()
 
-	cfg, err := resolveOutputConfig(dir, "", "generated/a2ui", "generated/a2uibuild", "example.com/custom/a2ui", "v10")
+	cfg, err := resolveOutputConfig(dir, "", "generated/a2ui", "generated/a2uibuild", "example.com/custom/a2ui", "v091")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cfg.A2UIImport != "example.com/custom/a2ui" {
 		t.Fatalf("A2UIImport = %q, want example.com/custom/a2ui", cfg.A2UIImport)
 	}
-	if cfg.VersionImport != "example.com/custom/a2ui/v10" {
-		t.Fatalf("VersionImport = %q, want example.com/custom/a2ui/v10", cfg.VersionImport)
+	if cfg.VersionImport != "example.com/custom/a2ui/v091" {
+		t.Fatalf("VersionImport = %q, want example.com/custom/a2ui/v091", cfg.VersionImport)
 	}
 }
 
@@ -76,6 +76,11 @@ func TestGenerateSDKRootLayout(t *testing.T) {
 		}
 	}
 
+	// The root package of the previous release forwarded to v09.
+	if err := os.WriteFile(filepath.Join(dir, "a2ui.go"), []byte("package a2ui\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := generateSDK(dir, "example.com/root", ".", "a2uibuild", "", "", ""); err != nil {
 		t.Fatal(err)
 	}
@@ -89,9 +94,12 @@ func TestGenerateSDKRootLayout(t *testing.T) {
 		path string
 		want string
 	}{
-		{"a2ui.go", `import "example.com/root/v09"`},
-		{filepath.Join("a2uibuild", "zz_builders.go"), `import "example.com/root/v09"`},
-		{filepath.Join("a2uischema", "manager.go"), `"example.com/root/v10"`},
+		{"message.go", "package a2ui\n"},
+		{"zz_component.go", "package a2ui\n"},
+		{filepath.Join("v09", "zz_component.go"), "package v09\n"},
+		{filepath.Join("a2uibuild", "zz_builders.go"), `import "example.com/root"`},
+		{filepath.Join("a2uischema", "manager.go"), `"example.com/root"`},
+		{filepath.Join("a2uischema", "manager.go"), `"example.com/root/v09"`},
 	}
 	for _, check := range checks {
 		data, err := os.ReadFile(filepath.Join(dir, check.path))
@@ -103,12 +111,20 @@ func TestGenerateSDKRootLayout(t *testing.T) {
 		}
 	}
 
+	for _, path := range []string{"a2ui.go", "gen.go", filepath.Join("a2uischema", "gen.go")} {
+		if _, err := os.Stat(filepath.Join(dir, path)); !os.IsNotExist(err) {
+			t.Fatalf("%s present in SDK output (err = %v)", path, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "testdata", "v1_0", "catalogs", "basic", "examples")); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := os.Stat(filepath.Join(dir, "a2uischema", "gen.go")); !os.IsNotExist(err) {
 		t.Fatalf("a2uischema/gen.go copied into SDK output (err = %v)", err)
 	}
 
 	for _, path := range []string{
-		filepath.Join(dir, "a2ui.go"),
+		filepath.Join(dir, "message.go"),
 		filepath.Join(dir, "a2uischema", "manager.go"),
 		filepath.Join(dir, "a2uibuild", "surface.go"),
 	} {

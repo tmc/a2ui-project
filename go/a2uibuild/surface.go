@@ -3,15 +3,14 @@ package a2uibuild
 import (
 	"maps"
 
-	"github.com/a2ui-project/a2ui/go/a2ui/v09"
+	"github.com/a2ui-project/a2ui/go/a2ui"
 )
 
-// Surface builds a complete A2UI surface as a sequence of server messages.
+// Surface builds a complete A2UI surface as a sequence of agent messages.
 type Surface struct {
 	surfaceID  string
 	catalogID  string
-	theme      *v09.Theme
-	components []v09.Component
+	components []a2ui.Component
 	data       map[string]any
 	sendData   bool
 }
@@ -24,12 +23,6 @@ func NewSurface(surfaceID, catalogID string) Surface {
 	}
 }
 
-// WithTheme returns a surface with theme parameters set.
-func (s Surface) WithTheme(t v09.Theme) Surface {
-	s.theme = &t
-	return s
-}
-
 // WithSendDataModel returns a surface that requests client data in actions.
 func (s Surface) WithSendDataModel() Surface {
 	s.sendData = true
@@ -37,7 +30,7 @@ func (s Surface) WithSendDataModel() Surface {
 }
 
 // Add returns a surface with c appended.
-func (s Surface) Add(c v09.Component) Surface {
+func (s Surface) Add(c a2ui.Component) Surface {
 	s.components = append(slicesClone(s.components), c)
 	return s
 }
@@ -48,24 +41,23 @@ func (s Surface) WithData(data map[string]any) Surface {
 	return s
 }
 
-// Messages returns the server messages needed to render this surface.
-func (s Surface) Messages() []v09.ServerMessage {
-	var msgs []v09.ServerMessage
+// Messages returns the agent messages needed to render this surface.
+func (s Surface) Messages() []a2ui.AgentMessage {
+	var msgs []a2ui.AgentMessage
 
-	msgs = append(msgs, v09.ServerMessage{
-		Version: v09.Version,
-		CreateSurface: &v09.CreateSurface{
+	msgs = append(msgs, a2ui.AgentMessage{
+		Version: a2ui.Version,
+		CreateSurface: &a2ui.CreateSurface{
 			SurfaceID:     s.surfaceID,
 			CatalogID:     s.catalogID,
-			Theme:         s.theme,
 			SendDataModel: s.sendData,
 		},
 	})
 
 	if len(s.components) > 0 {
-		msgs = append(msgs, v09.ServerMessage{
-			Version: v09.Version,
-			UpdateComponents: &v09.UpdateComponents{
+		msgs = append(msgs, a2ui.AgentMessage{
+			Version: a2ui.Version,
+			UpdateComponents: &a2ui.UpdateComponents{
 				SurfaceID:  s.surfaceID,
 				Components: slicesClone(s.components),
 			},
@@ -73,9 +65,9 @@ func (s Surface) Messages() []v09.ServerMessage {
 	}
 
 	if len(s.data) > 0 {
-		msgs = append(msgs, v09.ServerMessage{
-			Version: v09.Version,
-			UpdateDataModel: &v09.UpdateDataModel{
+		msgs = append(msgs, a2ui.AgentMessage{
+			Version: a2ui.Version,
+			UpdateDataModel: &a2ui.UpdateDataModel{
 				SurfaceID: s.surfaceID,
 				Value:     maps.Clone(s.data),
 			},

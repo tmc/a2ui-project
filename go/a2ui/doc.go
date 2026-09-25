@@ -2,9 +2,10 @@
 // protocol, a declarative JSON format for AI agents to generate
 // rich, interactive user interfaces.
 //
-// This package is the v0.9 compatibility API. It re-exports all types from
-// [github.com/a2ui-project/a2ui/go/a2ui/v09].
+// This package implements protocol version 1.x. An [AgentMessage] travels
+// from the agent to the renderer; a [RendererMessage] travels from the
+// renderer to the agent.
 //
-// Version-specific code should import the subpackage directly, such as
-// [github.com/a2ui-project/a2ui/go/a2ui/v10].
+// The pre-1.0 protocols are in [github.com/a2ui-project/a2ui/go/a2ui/v09]
+// and [github.com/a2ui-project/a2ui/go/a2ui/v091].
 package a2ui

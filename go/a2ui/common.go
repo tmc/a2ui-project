@@ -1,4 +1,4 @@
-package v10
+package a2ui
 
 // DataBinding references a value in the data model by JSON Pointer path.
 type DataBinding struct {

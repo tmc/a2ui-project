@@ -7,29 +7,29 @@ import (
 	"maps"
 	"slices"
 
-	a2uiv10 "github.com/a2ui-project/a2ui/go/a2ui/v10"
+	"github.com/a2ui-project/a2ui/go/a2ui"
 )
 
-func (v *Validator) parseMessagesV1(data []byte) ([]a2uiv10.AgentMessage, error) {
+func (v *Validator) parseMessagesV1(data []byte) ([]a2ui.AgentMessage, error) {
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
 		return nil, fmt.Errorf("schema: empty payload")
 	}
 	if data[0] == '[' {
-		var msgs []a2uiv10.AgentMessage
+		var msgs []a2ui.AgentMessage
 		if err := json.Unmarshal(data, &msgs); err != nil {
 			return nil, fmt.Errorf("schema: parse messages: %w", err)
 		}
 		return msgs, nil
 	}
-	var msg a2uiv10.AgentMessage
+	var msg a2ui.AgentMessage
 	if err := json.Unmarshal(data, &msg); err != nil {
 		return nil, fmt.Errorf("schema: parse message: %w", err)
 	}
-	return []a2uiv10.AgentMessage{msg}, nil
+	return []a2ui.AgentMessage{msg}, nil
 }
 
-func (v *Validator) validateMessagesV1(msgs []a2uiv10.AgentMessage) error {
+func (v *Validator) validateMessagesV1(msgs []a2ui.AgentMessage) error {
 	if len(msgs) == 0 {
 		return fmt.Errorf("schema: no messages to validate")
 	}
@@ -96,7 +96,7 @@ type componentRef struct {
 	from, to string
 }
 
-func (v *Validator) validateMessageV1(msg a2uiv10.AgentMessage) error {
+func (v *Validator) validateMessageV1(msg a2ui.AgentMessage) error {
 	wantVersion := Version1
 	if v.catalog != nil {
 		wantVersion = v.catalog.Version
@@ -158,7 +158,7 @@ func (v *Validator) validateMessageV1(msg a2uiv10.AgentMessage) error {
 
 // validateComponentsV1 validates components and returns the references
 // to components that are neither in components nor in known.
-func (v *Validator) validateComponentsV1(components []a2uiv10.Component, known map[string]bool) ([]componentRef, error) {
+func (v *Validator) validateComponentsV1(components []a2ui.Component, known map[string]bool) ([]componentRef, error) {
 	ids := make(map[string]int, len(components))
 	for i, component := range components {
 		if err := v.validateComponentV1(component); err != nil {
@@ -199,7 +199,7 @@ func (v *Validator) validateComponentsV1(components []a2uiv10.Component, known m
 	return unknown, nil
 }
 
-func (v *Validator) validateComponentV1(component a2uiv10.Component) error {
+func (v *Validator) validateComponentV1(component a2ui.Component) error {
 	if component.ID == "" {
 		return fmt.Errorf("id is required")
 	}
@@ -229,7 +229,7 @@ func (v *Validator) validateComponentV1(component a2uiv10.Component) error {
 			}
 		}
 		switch component.Accessibility.Live {
-		case "", a2uiv10.AccessibleLiveOff, a2uiv10.AccessibleLivePolite, a2uiv10.AccessibleLiveAssertive:
+		case "", a2ui.AccessibleLiveOff, a2ui.AccessibleLivePolite, a2ui.AccessibleLiveAssertive:
 		default:
 			return fmt.Errorf("accessibility.live = %q is not allowed", component.Accessibility.Live)
 		}
@@ -339,7 +339,7 @@ func (v *Validator) validateComponentV1(component a2uiv10.Component) error {
 		if err := v.validateDynamicStringV1(component.DateTimeInput.Value, 0); err != nil {
 			return fmt.Errorf("dateTimeInput.value: %w", err)
 		}
-		for name, value := range map[string]*a2uiv10.DynamicString{
+		for name, value := range map[string]*a2ui.DynamicString{
 			"label": component.DateTimeInput.Label,
 			"max":   component.DateTimeInput.Max,
 			"min":   component.DateTimeInput.Min,
@@ -354,11 +354,11 @@ func (v *Validator) validateComponentV1(component a2uiv10.Component) error {
 	return nil
 }
 
-func (v *Validator) validateTextComponentV1(component a2uiv10.TextComponent) error {
+func (v *Validator) validateTextComponentV1(component a2ui.TextComponent) error {
 	return v.validateDynamicStringV1(component.Text, 0)
 }
 
-func (v *Validator) validateImageComponentV1(component a2uiv10.ImageComponent) error {
+func (v *Validator) validateImageComponentV1(component a2ui.ImageComponent) error {
 	if err := v.validateDynamicStringV1(component.URL, 0); err != nil {
 		return err
 	}
@@ -370,14 +370,14 @@ func (v *Validator) validateImageComponentV1(component a2uiv10.ImageComponent) e
 	return nil
 }
 
-func (v *Validator) validateIconComponentV1(component a2uiv10.IconComponent) error {
+func (v *Validator) validateIconComponentV1(component a2ui.IconComponent) error {
 	if component.Name.Name == nil && component.Name.Path == nil {
 		return fmt.Errorf("icon.name is required")
 	}
 	return nil
 }
 
-func (v *Validator) validateVideoComponentV1(component a2uiv10.VideoComponent) error {
+func (v *Validator) validateVideoComponentV1(component a2ui.VideoComponent) error {
 	if err := v.validateDynamicStringV1(component.URL, 0); err != nil {
 		return err
 	}
@@ -387,7 +387,7 @@ func (v *Validator) validateVideoComponentV1(component a2uiv10.VideoComponent) e
 	return nil
 }
 
-func (v *Validator) validateAudioPlayerComponentV1(component a2uiv10.AudioPlayerComponent) error {
+func (v *Validator) validateAudioPlayerComponentV1(component a2ui.AudioPlayerComponent) error {
 	if err := v.validateDynamicStringV1(component.URL, 0); err != nil {
 		return err
 	}
@@ -397,7 +397,7 @@ func (v *Validator) validateAudioPlayerComponentV1(component a2uiv10.AudioPlayer
 	return nil
 }
 
-func (v *Validator) validateContainerChildrenV1(children a2uiv10.ChildList) error {
+func (v *Validator) validateContainerChildrenV1(children a2ui.ChildList) error {
 	if len(children.IDs) == 0 && children.Template == nil {
 		return fmt.Errorf("children must not be empty")
 	}
@@ -412,7 +412,7 @@ func (v *Validator) validateContainerChildrenV1(children a2uiv10.ChildList) erro
 	return nil
 }
 
-func (v *Validator) validateActionV1(action a2uiv10.Action, depth int) error {
+func (v *Validator) validateActionV1(action a2ui.Action, depth int) error {
 	switch {
 	case action.Event != nil && action.FunctionCall != nil:
 		return fmt.Errorf("action must not have both event and functionCall")
@@ -440,7 +440,7 @@ func (v *Validator) validateActionV1(action a2uiv10.Action, depth int) error {
 	return nil
 }
 
-func (v *Validator) validateDynamicStringV1(value a2uiv10.DynamicString, depth int) error {
+func (v *Validator) validateDynamicStringV1(value a2ui.DynamicString, depth int) error {
 	switch {
 	case value.Literal != nil:
 		return nil
@@ -453,7 +453,7 @@ func (v *Validator) validateDynamicStringV1(value a2uiv10.DynamicString, depth i
 	}
 }
 
-func (v *Validator) validateDynamicNumberV1(value a2uiv10.DynamicNumber, depth int) error {
+func (v *Validator) validateDynamicNumberV1(value a2ui.DynamicNumber, depth int) error {
 	switch {
 	case value.Literal != nil:
 		return nil
@@ -466,7 +466,7 @@ func (v *Validator) validateDynamicNumberV1(value a2uiv10.DynamicNumber, depth i
 	}
 }
 
-func (v *Validator) validateDynamicBooleanV1(value a2uiv10.DynamicBoolean, depth int) error {
+func (v *Validator) validateDynamicBooleanV1(value a2ui.DynamicBoolean, depth int) error {
 	switch {
 	case value.Literal != nil:
 		return nil
@@ -479,7 +479,7 @@ func (v *Validator) validateDynamicBooleanV1(value a2uiv10.DynamicBoolean, depth
 	}
 }
 
-func (v *Validator) validateDynamicStringListV1(value a2uiv10.DynamicStringList, depth int) error {
+func (v *Validator) validateDynamicStringListV1(value a2ui.DynamicStringList, depth int) error {
 	switch {
 	case value.Literal != nil:
 		return nil
@@ -492,7 +492,7 @@ func (v *Validator) validateDynamicStringListV1(value a2uiv10.DynamicStringList,
 	}
 }
 
-func (v *Validator) validateDynamicValueV1(value a2uiv10.DynamicValue, depth int) error {
+func (v *Validator) validateDynamicValueV1(value a2ui.DynamicValue, depth int) error {
 	switch {
 	case value.String != nil, value.Number != nil, value.Bool != nil, value.Array != nil:
 		return nil
@@ -505,7 +505,7 @@ func (v *Validator) validateDynamicValueV1(value a2uiv10.DynamicValue, depth int
 	}
 }
 
-func (v *Validator) validateDynamicValidationResultV1(value a2uiv10.DynamicValidationResult, depth int) error {
+func (v *Validator) validateDynamicValidationResultV1(value a2ui.DynamicValidationResult, depth int) error {
 	switch {
 	case value.Binding != nil && value.FunctionCall != nil:
 		return fmt.Errorf("condition must not have both path and call")
@@ -521,7 +521,7 @@ func (v *Validator) validateDynamicValidationResultV1(value a2uiv10.DynamicValid
 // indexFunction is the v1.0 system function available in list templates.
 const indexFunction = "@index"
 
-func (v *Validator) validateFunctionCallV1(call a2uiv10.FunctionCall, depth int) error {
+func (v *Validator) validateFunctionCallV1(call a2ui.FunctionCall, depth int) error {
 	if depth > 32 {
 		return fmt.Errorf("function call recursion depth exceeded")
 	}
@@ -564,7 +564,7 @@ func (v *Validator) validateFunctionArgV1(arg any, depth int) error {
 			if err != nil {
 				return err
 			}
-			var call a2uiv10.FunctionCall
+			var call a2ui.FunctionCall
 			if err := json.Unmarshal(data, &call); err != nil {
 				return err
 			}
@@ -581,22 +581,22 @@ func (v *Validator) validateFunctionArgV1(arg any, depth int) error {
 			}
 		}
 		return nil
-	case a2uiv10.DynamicValue:
+	case a2ui.DynamicValue:
 		return v.validateDynamicValueV1(value, depth+1)
-	case a2uiv10.DynamicString:
+	case a2ui.DynamicString:
 		return v.validateDynamicStringV1(value, depth+1)
-	case a2uiv10.DynamicNumber:
+	case a2ui.DynamicNumber:
 		return v.validateDynamicNumberV1(value, depth+1)
-	case a2uiv10.DynamicBoolean:
+	case a2ui.DynamicBoolean:
 		return v.validateDynamicBooleanV1(value, depth+1)
-	case a2uiv10.DynamicStringList:
+	case a2ui.DynamicStringList:
 		return v.validateDynamicStringListV1(value, depth+1)
 	default:
 		return nil
 	}
 }
 
-func validateFunctionResponseV1(response a2uiv10.FunctionResponse) error {
+func validateFunctionResponseV1(response a2ui.FunctionResponse) error {
 	if response.FunctionCallID == "" {
 		return fmt.Errorf("functionCallId is required")
 	}
@@ -620,7 +620,7 @@ func validateFunctionResponseV1(response a2uiv10.FunctionResponse) error {
 	}
 }
 
-func componentRefsV1(component a2uiv10.Component) ([]string, error) {
+func componentRefsV1(component a2ui.Component) ([]string, error) {
 	switch {
 	case component.Button != nil:
 		return []string{component.Button.Child}, nil
@@ -645,7 +645,7 @@ func componentRefsV1(component a2uiv10.Component) ([]string, error) {
 	}
 }
 
-func childListRefsV1(children a2uiv10.ChildList) ([]string, error) {
+func childListRefsV1(children a2ui.ChildList) ([]string, error) {
 	if children.Template != nil {
 		return []string{children.Template.ComponentID}, nil
 	}

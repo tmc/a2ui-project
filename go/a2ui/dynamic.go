@@ -1,4 +1,4 @@
-package v10
+package a2ui
 
 // DynamicString represents a string that can be a literal, a data binding,
 // or a function call. Exactly one field is non-nil.

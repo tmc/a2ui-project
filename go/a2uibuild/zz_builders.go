@@ -3,186 +3,186 @@
 // Package a2uibuild provides convenience constructors for A2UI components.
 package a2uibuild
 
-import "github.com/a2ui-project/a2ui/go/a2ui/v09"
+import "github.com/a2ui-project/a2ui/go/a2ui"
 
-// AudioPlayer creates a new [v09.Component] of type AudioPlayer with the given id.
-func AudioPlayer(id string, url v09.DynamicString) v09.Component {
-	return v09.Component{
+// AudioPlayer creates a new [a2ui.Component] of type AudioPlayer with the given id.
+func AudioPlayer(id string, url a2ui.DynamicString) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		AudioPlayer: &v09.AudioPlayerComponent{
+		AudioPlayer: &a2ui.AudioPlayerComponent{
 			URL: url,
 		},
 	}
 }
 
-// Button creates a new [v09.Component] of type Button with the given id.
-func Button(id string, action v09.Action, child string) v09.Component {
-	return v09.Component{
+// Button creates a new [a2ui.Component] of type Button with the given id.
+func Button(id string, action a2ui.Action, child string) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		Button: &v09.ButtonComponent{
+		Button: &a2ui.ButtonComponent{
 			Action: action,
 			Child:  child,
 		},
 	}
 }
 
-// Card creates a new [v09.Component] of type Card with the given id.
-func Card(id string, child string) v09.Component {
-	return v09.Component{
+// Card creates a new [a2ui.Component] of type Card with the given id.
+func Card(id string, child string) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		Card: &v09.CardComponent{
+		Card: &a2ui.CardComponent{
 			Child: child,
 		},
 	}
 }
 
-// CheckBox creates a new [v09.Component] of type CheckBox with the given id.
-func CheckBox(id string, label v09.DynamicString, value v09.DynamicBoolean) v09.Component {
-	return v09.Component{
+// CheckBox creates a new [a2ui.Component] of type CheckBox with the given id.
+func CheckBox(id string, label a2ui.DynamicString, value a2ui.DynamicBoolean) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		CheckBox: &v09.CheckBoxComponent{
+		CheckBox: &a2ui.CheckBoxComponent{
 			Label: label,
 			Value: value,
 		},
 	}
 }
 
-// ChoicePicker creates a new [v09.Component] of type ChoicePicker with the given id.
-func ChoicePicker(id string, options []v09.ChoiceOption, value v09.DynamicStringList) v09.Component {
-	return v09.Component{
+// ChoicePicker creates a new [a2ui.Component] of type ChoicePicker with the given id.
+func ChoicePicker(id string, options []a2ui.ChoiceOption, value a2ui.DynamicStringList) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		ChoicePicker: &v09.ChoicePickerComponent{
+		ChoicePicker: &a2ui.ChoicePickerComponent{
 			Options: options,
 			Value:   value,
 		},
 	}
 }
 
-// Column creates a new [v09.Component] of type Column with the given id.
-func Column(id string, children v09.ChildList) v09.Component {
-	return v09.Component{
+// Column creates a new [a2ui.Component] of type Column with the given id.
+func Column(id string, children a2ui.ChildList) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		Column: &v09.ColumnComponent{
+		Column: &a2ui.ColumnComponent{
 			Children: children,
 		},
 	}
 }
 
-// DateTimeInput creates a new [v09.Component] of type DateTimeInput with the given id.
-func DateTimeInput(id string, value v09.DynamicString) v09.Component {
-	return v09.Component{
+// DateTimeInput creates a new [a2ui.Component] of type DateTimeInput with the given id.
+func DateTimeInput(id string, value a2ui.DynamicString) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		DateTimeInput: &v09.DateTimeInputComponent{
+		DateTimeInput: &a2ui.DateTimeInputComponent{
 			Value: value,
 		},
 	}
 }
 
-// Divider creates a new [v09.Component] of type Divider with the given id.
-func Divider(id string) v09.Component {
-	return v09.Component{
+// Divider creates a new [a2ui.Component] of type Divider with the given id.
+func Divider(id string) a2ui.Component {
+	return a2ui.Component{
 		ID:      id,
-		Divider: &v09.DividerComponent{},
+		Divider: &a2ui.DividerComponent{},
 	}
 }
 
-// Icon creates a new [v09.Component] of type Icon with the given id.
-func Icon(id string, name v09.IconNameOrPath) v09.Component {
-	return v09.Component{
+// Icon creates a new [a2ui.Component] of type Icon with the given id.
+func Icon(id string, name a2ui.IconNameOrPath) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		Icon: &v09.IconComponent{
+		Icon: &a2ui.IconComponent{
 			Name: name,
 		},
 	}
 }
 
-// Image creates a new [v09.Component] of type Image with the given id.
-func Image(id string, url v09.DynamicString) v09.Component {
-	return v09.Component{
+// Image creates a new [a2ui.Component] of type Image with the given id.
+func Image(id string, url a2ui.DynamicString) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		Image: &v09.ImageComponent{
+		Image: &a2ui.ImageComponent{
 			URL: url,
 		},
 	}
 }
 
-// List creates a new [v09.Component] of type List with the given id.
-func List(id string, children v09.ChildList) v09.Component {
-	return v09.Component{
+// List creates a new [a2ui.Component] of type List with the given id.
+func List(id string, children a2ui.ChildList) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		List: &v09.ListComponent{
+		List: &a2ui.ListComponent{
 			Children: children,
 		},
 	}
 }
 
-// Modal creates a new [v09.Component] of type Modal with the given id.
-func Modal(id string, content string, trigger string) v09.Component {
-	return v09.Component{
+// Modal creates a new [a2ui.Component] of type Modal with the given id.
+func Modal(id string, content string, trigger string) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		Modal: &v09.ModalComponent{
+		Modal: &a2ui.ModalComponent{
 			Content: content,
 			Trigger: trigger,
 		},
 	}
 }
 
-// Row creates a new [v09.Component] of type Row with the given id.
-func Row(id string, children v09.ChildList) v09.Component {
-	return v09.Component{
+// Row creates a new [a2ui.Component] of type Row with the given id.
+func Row(id string, children a2ui.ChildList) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		Row: &v09.RowComponent{
+		Row: &a2ui.RowComponent{
 			Children: children,
 		},
 	}
 }
 
-// Slider creates a new [v09.Component] of type Slider with the given id.
-func Slider(id string, max float64, value v09.DynamicNumber) v09.Component {
-	return v09.Component{
+// Slider creates a new [a2ui.Component] of type Slider with the given id.
+func Slider(id string, max float64, value a2ui.DynamicNumber) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		Slider: &v09.SliderComponent{
+		Slider: &a2ui.SliderComponent{
 			Max:   max,
 			Value: value,
 		},
 	}
 }
 
-// Tabs creates a new [v09.Component] of type Tabs with the given id.
-func Tabs(id string, tabs []v09.TabDef) v09.Component {
-	return v09.Component{
+// Tabs creates a new [a2ui.Component] of type Tabs with the given id.
+func Tabs(id string, tabs []a2ui.TabDef) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		Tabs: &v09.TabsComponent{
+		Tabs: &a2ui.TabsComponent{
 			Tabs: tabs,
 		},
 	}
 }
 
-// Text creates a new [v09.Component] of type Text with the given id.
-func Text(id string, text v09.DynamicString) v09.Component {
-	return v09.Component{
+// Text creates a new [a2ui.Component] of type Text with the given id.
+func Text(id string, text a2ui.DynamicString) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		Text: &v09.TextComponent{
+		Text: &a2ui.TextComponent{
 			Text: text,
 		},
 	}
 }
 
-// TextField creates a new [v09.Component] of type TextField with the given id.
-func TextField(id string, label v09.DynamicString) v09.Component {
-	return v09.Component{
+// TextField creates a new [a2ui.Component] of type TextField with the given id.
+func TextField(id string, label a2ui.DynamicString) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		TextField: &v09.TextFieldComponent{
+		TextField: &a2ui.TextFieldComponent{
 			Label: label,
 		},
 	}
 }
 
-// Video creates a new [v09.Component] of type Video with the given id.
-func Video(id string, url v09.DynamicString) v09.Component {
-	return v09.Component{
+// Video creates a new [a2ui.Component] of type Video with the given id.
+func Video(id string, url a2ui.DynamicString) a2ui.Component {
+	return a2ui.Component{
 		ID: id,
-		Video: &v09.VideoComponent{
+		Video: &a2ui.VideoComponent{
 			URL: url,
 		},
 	}

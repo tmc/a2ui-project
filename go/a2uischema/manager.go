@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/a2ui-project/a2ui/go/a2ui/v09"
+	"github.com/a2ui-project/a2ui/go/a2ui"
+	v09 "github.com/a2ui-project/a2ui/go/a2ui/v09"
 	a2uiv091 "github.com/a2ui-project/a2ui/go/a2ui/v091"
-	a2uiv10 "github.com/a2ui-project/a2ui/go/a2ui/v10"
 )
 
 // SchemaModifier can rewrite a decoded schema before it is used.
@@ -196,7 +196,7 @@ func (m *SchemaManager) selectCatalog(clientCapabilities *v09.ClientCapabilities
 	return nil, fmt.Errorf("schema: no mutually supported catalog found")
 }
 
-func (m *SchemaManager) selectCatalogV1(rendererCapabilities *a2uiv10.RendererCapabilities) (*Catalog, error) {
+func (m *SchemaManager) selectCatalogV1(rendererCapabilities *a2ui.RendererCapabilities) (*Catalog, error) {
 	if m.version != Version1 {
 		return nil, fmt.Errorf("schema: manager version = %q, want %q", m.version, Version1)
 	}
@@ -256,7 +256,7 @@ func (m *SchemaManager) selectCatalogFor(clientCapabilities any) (*Catalog, erro
 			return nil, fmt.Errorf("schema: manager version = %q, got v0.9.1 capabilities", m.version)
 		}
 		return m.selectCatalogV091(caps)
-	case *a2uiv10.RendererCapabilities:
+	case *a2ui.RendererCapabilities:
 		if m.version != Version1 {
 			return nil, fmt.Errorf("schema: manager version = %q, got v1.0 capabilities", m.version)
 		}
@@ -407,7 +407,7 @@ func mergeInlineCatalogsV091(version Version, base *Catalog, inlineCatalogs []a2
 	return merged, nil
 }
 
-func mergeInlineCatalogsV1(version Version, base *Catalog, inlineCatalogs []a2uiv10.CatalogDef) (*Catalog, error) {
+func mergeInlineCatalogsV1(version Version, base *Catalog, inlineCatalogs []a2ui.CatalogDef) (*Catalog, error) {
 	serverSchema, commonSchema, catalogSchema, err := cloneCatalogSchemas(base)
 	if err != nil {
 		return nil, err
