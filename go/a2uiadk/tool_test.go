@@ -11,17 +11,17 @@ import (
 func TestSendA2UIJSONToClientToolRun(t *testing.T) {
 	catalog := testCatalog(t)
 	tool := NewSendA2UIJSONToClientTool(catalog.Validator())
-	ctx := &ToolContext{}
+	tc := &ToolContext{}
 	result := tool.Run(map[string]any{
 		A2UIJSONArgName: `[
 			{"version":"v0.9","createSurface":{"surfaceId":"dummy-surface","catalogId":"https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"}},
 			{"version":"v0.9","updateComponents":{"surfaceId":"dummy-surface","components":[{"component":"Text","id":"root","text":"hello"}]}}
 		]`,
-	}, ctx)
+	}, tc)
 	if _, ok := result[ToolErrorKey]; ok {
 		t.Fatalf("Run returned error: %#v", result)
 	}
-	if !ctx.SkipSummarization {
+	if !tc.SkipSummarization {
 		t.Fatal("SkipSummarization = false, want true")
 	}
 	payload, ok := result[ValidatedJSONKey].([]map[string]any)

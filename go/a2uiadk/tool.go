@@ -73,7 +73,7 @@ func ProcessInstructions(catalog *a2uischema.Catalog, examples string) ([]string
 }
 
 // Run validates the a2ui_json argument and returns a result map.
-func (t SendA2UIJSONToClientTool) Run(args map[string]any, ctx *ToolContext) map[string]any {
+func (t SendA2UIJSONToClientTool) Run(args map[string]any, tc *ToolContext) map[string]any {
 	payload, ok := args[A2UIJSONArgName].(string)
 	if !ok || payload == "" {
 		return toolError(fmt.Errorf("missing required arg %s", A2UIJSONArgName))
@@ -92,8 +92,8 @@ func (t SendA2UIJSONToClientTool) Run(args map[string]any, ctx *ToolContext) map
 	if err := t.Validator.ValidateJSON(data); err != nil {
 		return toolError(err)
 	}
-	if ctx != nil {
-		ctx.SkipSummarization = true
+	if tc != nil {
+		tc.SkipSummarization = true
 	}
 	return map[string]any{ValidatedJSONKey: objects}
 }
