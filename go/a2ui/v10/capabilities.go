@@ -14,11 +14,11 @@ const (
 // RendererCapabilities describes a renderer's UI rendering capabilities,
 // sent as part of A2A metadata.
 type RendererCapabilities struct {
-	V10 *RendererCapabilitiesV10 `json:"v1.0,omitempty"`
+	V1 *RendererCapabilitiesV1 `json:"v1.0,omitempty"`
 }
 
-// RendererCapabilitiesV10 is the v1.0 renderer capabilities structure.
-type RendererCapabilitiesV10 struct {
+// RendererCapabilitiesV1 is the v1.0 renderer capabilities structure.
+type RendererCapabilitiesV1 struct {
 	SupportedCatalogIDs []string     `json:"supportedCatalogIds"`
 	InlineCatalogs      []CatalogDef `json:"inlineCatalogs,omitempty"`
 }
@@ -26,11 +26,11 @@ type RendererCapabilitiesV10 struct {
 // AgentCapabilities describes an agent's supported UI features,
 // advertised via agent card or other discovery.
 type AgentCapabilities struct {
-	V10 *AgentCapabilitiesV10 `json:"v1.0,omitempty"`
+	V1 *AgentCapabilitiesV1 `json:"v1.0,omitempty"`
 }
 
-// AgentCapabilitiesV10 is the v1.0 agent capabilities structure.
-type AgentCapabilitiesV10 struct {
+// AgentCapabilitiesV1 is the v1.0 agent capabilities structure.
+type AgentCapabilitiesV1 struct {
 	SupportedCatalogIDs   []string `json:"supportedCatalogIds,omitempty"`
 	AcceptsInlineCatalogs bool     `json:"acceptsInlineCatalogs,omitempty"`
 }

@@ -26,7 +26,7 @@ func TestCreatePartUsesVersionedMIMEType(t *testing.T) {
 	}{
 		{"v0.9", "v0.9", A2UIMIMETypeV09},
 		{"v0.9.1", "v0.9.1", A2UIMIMETypeV091},
-		{"v1.0", "v1.0", A2UIMIMETypeV10},
+		{"v1.0", "v1.0", A2UIMIMETypeV1},
 		{"default", "", A2UIMIMETypeLatest},
 	}
 	for _, tt := range tests {
@@ -50,8 +50,8 @@ func TestCreateDataPartInfersVersionedPayload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := part.Metadata[MIMETypeKey]; got != A2UIMIMETypeV10 {
-		t.Fatalf("mime type = %q, want %q", got, A2UIMIMETypeV10)
+	if got := part.Metadata[MIMETypeKey]; got != A2UIMIMETypeV1 {
+		t.Fatalf("mime type = %q, want %q", got, A2UIMIMETypeV1)
 	}
 }
 

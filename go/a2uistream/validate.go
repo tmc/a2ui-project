@@ -1,10 +1,10 @@
 package a2uistream
 
-import "github.com/a2ui-project/a2ui/go/a2ui"
+import "github.com/a2ui-project/a2ui/go/a2ui/v09"
 
 // MessageValidator validates a batch of parsed A2UI messages.
 type MessageValidator interface {
-	ValidateMessages([]a2ui.ServerMessage) error
+	ValidateMessages([]v09.ServerMessage) error
 }
 
 // ParseAndValidate parses a complete response and validates each discovered message batch.

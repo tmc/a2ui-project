@@ -28,11 +28,11 @@ var (
 	basicCatalogRulesV091 string
 
 	//go:embed schemas/v1_0/agent_to_renderer.json
-	agentToRendererV10 []byte
+	agentToRendererV1 []byte
 
 	//go:embed schemas/v1_0/common_types.json
-	commonTypesV10 []byte
+	commonTypesV1 []byte
 
 	//go:embed schemas/v1_0/basic_catalog.json
-	basicCatalogV10 []byte
+	basicCatalogV1 []byte
 )
