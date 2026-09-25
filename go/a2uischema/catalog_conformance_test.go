@@ -8,11 +8,11 @@ import (
 
 func TestCatalogLoadExamplesConformance(t *testing.T) {
 	catalog := &Catalog{
-		Version:              Version09,
-		Name:                 "test",
-		ServerToClientSchema: map[string]any{},
-		CommonTypesSchema:    map[string]any{},
-		CatalogSchema:        map[string]any{CatalogIDKey: "basic"},
+		Version:           Version09,
+		Name:              "test",
+		MessageSchema:     map[string]any{},
+		CommonTypesSchema: map[string]any{},
+		CatalogSchema:     map[string]any{CatalogIDKey: "basic"},
 	}
 	root := makeLoadExamplesFixtures(t)
 	tests := []struct {

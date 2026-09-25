@@ -16,7 +16,7 @@ type SchemaModifier func(schema map[string]any) error
 type SchemaManager struct {
 	version               Version
 	acceptsInlineCatalogs bool
-	serverToClientSchema  map[string]any
+	messageSchema         map[string]any
 	commonTypesSchema     map[string]any
 	supportedCatalogs     []*Catalog
 	catalogExamplePaths   map[string]string
@@ -25,14 +25,14 @@ type SchemaManager struct {
 
 // NewSchemaManager constructs a schema manager.
 func NewSchemaManager(version Version, catalogs []CatalogConfig, acceptsInlineCatalogs bool, schemaModifiers ...SchemaModifier) (*SchemaManager, error) {
-	serverSchema, commonSchema, err := embeddedSchemas(version)
+	messageSchema, commonSchema, err := embeddedSchemas(version)
 	if err != nil {
 		return nil, err
 	}
 	manager := &SchemaManager{
 		version:               version,
 		acceptsInlineCatalogs: acceptsInlineCatalogs,
-		serverToClientSchema:  serverSchema,
+		messageSchema:         messageSchema,
 		commonTypesSchema:     commonSchema,
 		catalogExamplePaths:   make(map[string]string),
 		schemaModifiers:       schemaModifiers,
@@ -42,19 +42,19 @@ func NewSchemaManager(version Version, catalogs []CatalogConfig, acceptsInlineCa
 		if err != nil {
 			return nil, fmt.Errorf("a2uischema: load catalog %q: %w", cfg.Name, err)
 		}
-		serverSchemaData, err := marshalJSON(serverSchema)
+		messageSchemaData, err := marshalJSON(messageSchema)
 		if err != nil {
-			return nil, fmt.Errorf("a2uischema: encode server_to_client schema: %w", err)
+			return nil, fmt.Errorf("a2uischema: encode message schema: %w", err)
 		}
 		commonSchemaData, err := marshalJSON(commonSchema)
 		if err != nil {
 			return nil, fmt.Errorf("a2uischema: encode common_types schema: %w", err)
 		}
-		catalog, err := newCatalog(version, cfg.Name, serverSchemaData, commonSchemaData, data)
+		catalog, err := newCatalog(version, cfg.Name, messageSchemaData, commonSchemaData, data)
 		if err != nil {
 			return nil, err
 		}
-		if err := manager.applyModifiers(catalog.ServerToClientSchema); err != nil {
+		if err := manager.applyModifiers(catalog.MessageSchema); err != nil {
 			return nil, err
 		}
 		if err := manager.applyModifiers(catalog.CommonTypesSchema); err != nil {
@@ -310,16 +310,16 @@ func (m *SchemaManager) selectCatalogV091(clientCapabilities *a2uiv091.ClientCap
 }
 
 func mergeInlineCatalogs(version Version, base *Catalog, inlineCatalogs []v09.CatalogDef) (*Catalog, error) {
-	serverSchema, commonSchema, catalogSchema, err := cloneCatalogSchemas(base)
+	messageSchema, commonSchema, catalogSchema, err := cloneCatalogSchemas(base)
 	if err != nil {
 		return nil, err
 	}
 	merged := &Catalog{
-		Version:              version,
-		Name:                 InlineCatalogName,
-		ServerToClientSchema: serverSchema,
-		CommonTypesSchema:    commonSchema,
-		CatalogSchema:        catalogSchema,
+		Version:           version,
+		Name:              InlineCatalogName,
+		MessageSchema:     messageSchema,
+		CommonTypesSchema: commonSchema,
+		CatalogSchema:     catalogSchema,
 	}
 	for _, inline := range inlineCatalogs {
 		if inline.CatalogID != "" {
@@ -359,16 +359,16 @@ func mergeInlineCatalogs(version Version, base *Catalog, inlineCatalogs []v09.Ca
 }
 
 func mergeInlineCatalogsV091(version Version, base *Catalog, inlineCatalogs []a2uiv091.CatalogDef) (*Catalog, error) {
-	serverSchema, commonSchema, catalogSchema, err := cloneCatalogSchemas(base)
+	messageSchema, commonSchema, catalogSchema, err := cloneCatalogSchemas(base)
 	if err != nil {
 		return nil, err
 	}
 	merged := &Catalog{
-		Version:              version,
-		Name:                 InlineCatalogName,
-		ServerToClientSchema: serverSchema,
-		CommonTypesSchema:    commonSchema,
-		CatalogSchema:        catalogSchema,
+		Version:           version,
+		Name:              InlineCatalogName,
+		MessageSchema:     messageSchema,
+		CommonTypesSchema: commonSchema,
+		CatalogSchema:     catalogSchema,
 	}
 	for _, inline := range inlineCatalogs {
 		if inline.CatalogID != "" {
@@ -408,16 +408,16 @@ func mergeInlineCatalogsV091(version Version, base *Catalog, inlineCatalogs []a2
 }
 
 func mergeInlineCatalogsV1(version Version, base *Catalog, inlineCatalogs []a2ui.CatalogDef) (*Catalog, error) {
-	serverSchema, commonSchema, catalogSchema, err := cloneCatalogSchemas(base)
+	messageSchema, commonSchema, catalogSchema, err := cloneCatalogSchemas(base)
 	if err != nil {
 		return nil, err
 	}
 	merged := &Catalog{
-		Version:              version,
-		Name:                 InlineCatalogName,
-		ServerToClientSchema: serverSchema,
-		CommonTypesSchema:    commonSchema,
-		CatalogSchema:        catalogSchema,
+		Version:           version,
+		Name:              InlineCatalogName,
+		MessageSchema:     messageSchema,
+		CommonTypesSchema: commonSchema,
+		CatalogSchema:     catalogSchema,
 	}
 	for _, inline := range inlineCatalogs {
 		if inline.CatalogID != "" {
@@ -503,7 +503,7 @@ func mergeInlineFunctions(catalogSchema map[string]any, functions any) error {
 func embeddedSchemas(version Version) (map[string]any, map[string]any, error) {
 	switch version {
 	case Version09:
-		serverMap, err := unmarshalJSONMap(serverToClientV09)
+		messageMap, err := unmarshalJSONMap(serverToClientV09)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -511,9 +511,9 @@ func embeddedSchemas(version Version) (map[string]any, map[string]any, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		return serverMap, commonMap, nil
+		return messageMap, commonMap, nil
 	case Version091:
-		serverMap, err := unmarshalJSONMap(serverToClientV091)
+		messageMap, err := unmarshalJSONMap(serverToClientV091)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -521,9 +521,9 @@ func embeddedSchemas(version Version) (map[string]any, map[string]any, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		return serverMap, commonMap, nil
+		return messageMap, commonMap, nil
 	case Version1:
-		serverMap, err := unmarshalJSONMap(agentToRendererV1)
+		messageMap, err := unmarshalJSONMap(agentToRendererV1)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -531,7 +531,7 @@ func embeddedSchemas(version Version) (map[string]any, map[string]any, error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		return serverMap, commonMap, nil
+		return messageMap, commonMap, nil
 	default:
 		return nil, nil, fmt.Errorf("a2uischema: unsupported version %q", version)
 	}
