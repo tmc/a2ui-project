@@ -600,24 +600,17 @@ func validateFunctionResponseV1(response a2ui.FunctionResponse) error {
 	if response.FunctionCallID == "" {
 		return fmt.Errorf("functionCallId is required")
 	}
-	hasValue := response.HasValue || response.Value != nil
-	hasError := response.Error != nil
 	switch {
-	case hasValue && hasError:
+	case response.Error == nil:
+		return nil
+	case response.Value != nil:
 		return fmt.Errorf("must not have both value and error")
-	case hasValue:
-		return nil
-	case hasError:
-		if response.Error.Code == "" {
-			return fmt.Errorf("error.code is required")
-		}
-		if response.Error.Message == "" {
-			return fmt.Errorf("error.message is required")
-		}
-		return nil
-	default:
-		return fmt.Errorf("must have value or error")
+	case response.Error.Code == "":
+		return fmt.Errorf("error.code is required")
+	case response.Error.Message == "":
+		return fmt.Errorf("error.message is required")
 	}
+	return nil
 }
 
 func componentRefsV1(component a2ui.Component) ([]string, error) {

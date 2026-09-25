@@ -130,7 +130,7 @@ func TestValidatorAcceptsV1AgentFunctionResponseNull(t *testing.T) {
 	validator := mustBasicValidatorV1(t)
 	msg := a2ui.AgentMessage{
 		Version:               a2ui.Version,
-		AgentFunctionResponse: ptr(a2ui.FunctionResponseValue("call-1", nil)),
+		AgentFunctionResponse: &a2ui.FunctionResponse{FunctionCallID: "call-1"},
 	}
 	if err := validator.ValidateVersionMessages([]a2ui.AgentMessage{msg}); err != nil {
 		t.Fatal(err)

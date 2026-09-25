@@ -67,3 +67,18 @@ func ExampleIndex() {
 	fmt.Println(string(data))
 	// Output: {"call":"@index","args":{"offset":1}}
 }
+
+func ExampleFunctionResponse() {
+	for _, r := range []a2ui.FunctionResponse{
+		{FunctionCallID: "call-1", Value: 42},
+		{FunctionCallID: "call-2"}, // a nil Value is a null result
+		{FunctionCallID: "call-3", Error: &a2ui.FunctionError{Code: "FAILED", Message: "no network"}},
+	} {
+		data, _ := json.Marshal(r)
+		fmt.Println(string(data))
+	}
+	// Output:
+	// {"functionCallId":"call-1","value":42}
+	// {"functionCallId":"call-2","value":null}
+	// {"functionCallId":"call-3","error":{"code":"FAILED","message":"no network"}}
+}

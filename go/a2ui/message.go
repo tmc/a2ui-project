@@ -55,17 +55,15 @@ type CallRendererFunction struct {
 }
 
 // FunctionResponse is the result of a callRendererFunction or
-// callAgentFunction invocation. Exactly one of a value or Error is set.
+// callAgentFunction invocation.
+//
+// If Error is nil, the response carries Value, and a nil Value is
+// encoded as a JSON null. Otherwise the response carries Error, and
+// Value must be nil.
 type FunctionResponse struct {
-	FunctionCallID string         `json:"-"`
-	Value          any            `json:"-"`
-	HasValue       bool           `json:"-"`
-	Error          *FunctionError `json:"-"`
-}
-
-// FunctionResponseValue returns a response carrying value, which may be nil.
-func FunctionResponseValue(functionCallID string, value any) FunctionResponse {
-	return FunctionResponse{FunctionCallID: functionCallID, Value: value, HasValue: true}
+	FunctionCallID string
+	Value          any
+	Error          *FunctionError
 }
 
 // FunctionError reports a failed function execution.

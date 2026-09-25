@@ -57,24 +57,19 @@ func (r FunctionResponse) MarshalJSON() ([]byte, error) {
 	if r.FunctionCallID == "" {
 		return nil, fmt.Errorf("a2ui: function response functionCallId is required")
 	}
-	hasValue := r.HasValue || r.Value != nil
-	hasError := r.Error != nil
-	switch {
-	case hasValue && hasError:
-		return nil, fmt.Errorf("a2ui: function response has both value and error set")
-	case hasValue:
+	if r.Error == nil {
 		return json.Marshal(struct {
 			FunctionCallID string `json:"functionCallId"`
 			Value          any    `json:"value"`
 		}{r.FunctionCallID, r.Value})
-	case hasError:
-		return json.Marshal(struct {
-			FunctionCallID string         `json:"functionCallId"`
-			Error          *FunctionError `json:"error"`
-		}{r.FunctionCallID, r.Error})
-	default:
-		return nil, fmt.Errorf("a2ui: function response has no value or error set")
 	}
+	if r.Value != nil {
+		return nil, fmt.Errorf("a2ui: function response has both value and error set")
+	}
+	return json.Marshal(struct {
+		FunctionCallID string         `json:"functionCallId"`
+		Error          *FunctionError `json:"error"`
+	}{r.FunctionCallID, r.Error})
 }
 
 // UnmarshalJSON implements json.Unmarshaler for FunctionResponse.
@@ -83,7 +78,10 @@ func (r *FunctionResponse) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return fmt.Errorf("a2ui: unmarshal function response: %w", err)
 	}
-	var resp FunctionResponse
+	var (
+		resp     FunctionResponse
+		hasValue bool
+	)
 	for key, raw := range fields {
 		switch key {
 		case "functionCallId":
@@ -91,7 +89,7 @@ func (r *FunctionResponse) UnmarshalJSON(data []byte) error {
 				return fmt.Errorf("a2ui: unmarshal function response functionCallId: %w", err)
 			}
 		case "value":
-			resp.HasValue = true
+			hasValue = true
 			if string(bytes.TrimSpace(raw)) != "null" {
 				if err := json.Unmarshal(raw, &resp.Value); err != nil {
 					return fmt.Errorf("a2ui: unmarshal function response value: %w", err)
@@ -109,9 +107,9 @@ func (r *FunctionResponse) UnmarshalJSON(data []byte) error {
 	switch {
 	case resp.FunctionCallID == "":
 		return fmt.Errorf("a2ui: function response functionCallId is required")
-	case resp.HasValue && resp.Error != nil:
+	case hasValue && resp.Error != nil:
 		return fmt.Errorf("a2ui: function response must not have both value and error")
-	case !resp.HasValue && resp.Error == nil:
+	case !hasValue && resp.Error == nil:
 		return fmt.Errorf("a2ui: function response must have value or error")
 	}
 	*r = resp

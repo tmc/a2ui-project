@@ -132,14 +132,14 @@ func TestAgentMessageRoundTrip(t *testing.T) {
 			name: "agent_function_response",
 			msg: AgentMessage{
 				Version:               Version,
-				AgentFunctionResponse: ptr(FunctionResponseValue("call-1", "done")),
+				AgentFunctionResponse: &FunctionResponse{FunctionCallID: "call-1", Value: "done"},
 			},
 		},
 		{
 			name: "agent_function_response_null",
 			msg: AgentMessage{
 				Version:               Version,
-				AgentFunctionResponse: ptr(FunctionResponseValue("call-1", nil)),
+				AgentFunctionResponse: &FunctionResponse{FunctionCallID: "call-1"},
 			},
 		},
 		{
@@ -184,9 +184,8 @@ func TestFunctionResponseRejectsInvalidPayloads(t *testing.T) {
 		name     string
 		response FunctionResponse
 	}{
-		{"none", FunctionResponse{FunctionCallID: "call-1"}},
 		{"both", FunctionResponse{FunctionCallID: "call-1", Value: "done", Error: &FunctionError{Code: "ERR", Message: "bad"}}},
-		{"missing_id", FunctionResponseValue("", "done")},
+		{"missing_id", FunctionResponse{Value: "done"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -242,7 +241,7 @@ func TestRendererMessageRoundTrip(t *testing.T) {
 			name: "renderer_function_response",
 			msg: RendererMessage{
 				Version:                  Version,
-				RendererFunctionResponse: ptr(FunctionResponseValue("call-1", "ok")),
+				RendererFunctionResponse: &FunctionResponse{FunctionCallID: "call-1", Value: "ok"},
 			},
 		},
 		{
