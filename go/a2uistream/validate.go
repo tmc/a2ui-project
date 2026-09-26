@@ -1,14 +1,103 @@
 package a2uistream
 
-import "github.com/a2ui-project/a2ui/go/a2ui/v09"
+import (
+	"encoding/json"
+	"fmt"
 
-// MessageValidator validates a batch of parsed A2UI messages.
+	"github.com/a2ui-project/a2ui/go/a2ui"
+	"github.com/a2ui-project/a2ui/go/a2ui/v09"
+)
+
+// MessageValidator validates a batch of A2UI 1.x messages.
 type MessageValidator interface {
-	ValidateMessages([]v09.ServerMessage) error
+	ValidateMessages([]a2ui.AgentMessage) error
 }
 
-// ParseAndValidate parses a complete response and validates each discovered message batch.
+// MessageValidatorV09 validates a batch of A2UI v0.9 messages.
+type MessageValidatorV09 interface {
+	ValidateMessagesV09([]v09.ServerMessage) error
+}
+
+// ParseAndValidate parses a complete response and validates each discovered
+// batch of 1.x messages. It reports an error for A2UI messages of any other
+// version, or 1.x messages that do not decode, rather than skipping them.
+// A nil validator only checks versions and decoding.
 func ParseAndValidate(content string, validator MessageValidator) ([]ResponsePart, error) {
+	parts, err := parseAll(content)
+	if err != nil {
+		return nil, err
+	}
+	for _, part := range parts {
+		for _, payload := range part.Payload {
+			if version := payloadVersion(payload); !isV1(version) {
+				return nil, fmt.Errorf("a2uistream: message version %q is not 1.x", version)
+			}
+		}
+		if len(part.Messages) != len(part.Payload) {
+			return nil, fmt.Errorf("a2uistream: invalid 1.x message")
+		}
+		if validator != nil && len(part.Messages) > 0 {
+			if err := validator.ValidateMessages(part.Messages); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return parts, nil
+}
+
+// ParseAndValidateV09 is like [ParseAndValidate] for v0.9 messages.
+// It accepts the v0.9.x revisions, which share the v0.9 message types.
+func ParseAndValidateV09(content string, validator MessageValidatorV09) ([]ResponsePart, error) {
+	parts, err := parseAll(content)
+	if err != nil {
+		return nil, err
+	}
+	for _, part := range parts {
+		for _, payload := range part.Payload {
+			if version := payloadVersion(payload); !isV09(version) {
+				return nil, fmt.Errorf("a2uistream: message version %q is not v0.9", version)
+			}
+		}
+		msgs, err := part.MessagesV09()
+		if err != nil {
+			return nil, err
+		}
+		if validator != nil && len(msgs) > 0 {
+			if err := validator.ValidateMessagesV09(msgs); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return parts, nil
+}
+
+// MessagesV09 decodes the v0.9 and v0.9.x messages in p.Payload.
+// Messages of other versions are skipped.
+func (p ResponsePart) MessagesV09() ([]v09.ServerMessage, error) {
+	var msgs []v09.ServerMessage
+	for _, payload := range p.Payload {
+		if !isV09(payloadVersion(payload)) {
+			continue
+		}
+		data, err := json.Marshal(payload)
+		if err != nil {
+			return nil, fmt.Errorf("a2uistream: encode v0.9 message: %w", err)
+		}
+		var msg v09.ServerMessage
+		if err := json.Unmarshal(data, &msg); err != nil {
+			return nil, fmt.Errorf("a2uistream: decode v0.9 message: %w", err)
+		}
+		msgs = append(msgs, msg)
+	}
+	return msgs, nil
+}
+
+func payloadVersion(payload map[string]any) string {
+	version, _ := payload["version"].(string)
+	return version
+}
+
+func parseAll(content string) ([]ResponsePart, error) {
 	parser := NewParser()
 	parts, err := parser.ProcessChunk(content)
 	if err != nil {
@@ -18,16 +107,5 @@ func ParseAndValidate(content string, validator MessageValidator) ([]ResponsePar
 	if err != nil {
 		return nil, err
 	}
-	parts = append(parts, flush...)
-	if validator != nil {
-		for _, part := range parts {
-			if len(part.Messages) == 0 {
-				continue
-			}
-			if err := validator.ValidateMessages(part.Messages); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return parts, nil
+	return append(parts, flush...), nil
 }

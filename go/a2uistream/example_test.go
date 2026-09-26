@@ -9,7 +9,7 @@ import (
 )
 
 func ExampleReader_Next() {
-	input := `Before <a2ui-json>{"version":"v0.9","deleteSurface":{"surfaceId":"old"}}</a2ui-json> after`
+	input := `Before <a2ui-json>{"version":"v1.0","deleteSurface":{"surfaceId":"old"}}</a2ui-json> after`
 	r := a2uistream.NewReader(strings.NewReader(input))
 	for {
 		part, err := r.Next()
@@ -52,6 +52,32 @@ func ExampleReader_Next_payload() {
 	// Output:
 	// v1.0
 	// call-1
+}
+
+func ExampleResponsePart_MessagesV09() {
+	input := `<a2ui-json>{"version":"v0.9","deleteSurface":{"surfaceId":"old"}}</a2ui-json>`
+	parts, err := a2uistream.ParseAndValidateV09(input, nil)
+	if err != nil {
+		panic(err)
+	}
+	msgs, err := parts[0].MessagesV09()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(len(parts[0].Messages), msgs[0].DeleteSurface.SurfaceID)
+	// Output:
+	// 0 old
+}
+
+func ExampleParseAndValidate() {
+	_, err := a2uistream.ParseAndValidate(`<a2ui-json>{"version":"v0.9","deleteSurface":{"surfaceId":"old"}}</a2ui-json>`, nil)
+	fmt.Println(err)
+
+	parts, err := a2uistream.ParseAndValidate(`<a2ui-json>{"version":"v1.0","deleteSurface":{"surfaceId":"old"}}</a2ui-json>`, nil)
+	fmt.Println(parts[0].Messages[0].DeleteSurface.SurfaceID, err)
+	// Output:
+	// a2uistream: message version "v0.9" is not 1.x
+	// old <nil>
 }
 
 func ExampleFixPayload() {

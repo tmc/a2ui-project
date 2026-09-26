@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/a2ui-project/a2ui/go/a2ui/v09"
+	"github.com/a2ui-project/a2ui/go/a2ui"
 )
 
 func TestPureText(t *testing.T) {
@@ -43,8 +43,12 @@ func TestV1CallRendererFunctionPayload(t *testing.T) {
 	}
 	parts = append(parts, flush...)
 
-	if msgs := collectMessages(parts); len(msgs) != 0 {
-		t.Fatalf("legacy messages = %d, want 0", len(msgs))
+	msgs := collectMessages(parts)
+	if len(msgs) != 1 || msgs[0].CallRendererFunction == nil {
+		t.Fatalf("messages = %+v, want one callRendererFunction", msgs)
+	}
+	if got := msgs[0].CallRendererFunction.FunctionCallID; got != "call-1" {
+		t.Fatalf("decoded functionCallId = %q, want call-1", got)
 	}
 	payload := collectPayload(parts)
 	if len(payload) != 1 {
@@ -113,9 +117,9 @@ func TestVersionOnlyJSONRemainsText(t *testing.T) {
 }
 
 func TestReaderNext(t *testing.T) {
-	msg := v09.ServerMessage{
-		Version: "v0.9",
-		CreateSurface: &v09.CreateSurface{
+	msg := a2ui.AgentMessage{
+		Version: a2ui.Version,
+		CreateSurface: &a2ui.CreateSurface{
 			SurfaceID: "reader",
 			CatalogID: "cat",
 		},
@@ -144,9 +148,9 @@ func TestReaderNext(t *testing.T) {
 }
 
 func TestSingleJSONMessage(t *testing.T) {
-	msg := v09.ServerMessage{
-		Version: "v0.9",
-		CreateSurface: &v09.CreateSurface{
+	msg := a2ui.AgentMessage{
+		Version: a2ui.Version,
+		CreateSurface: &a2ui.CreateSurface{
 			SurfaceID: "s1",
 			CatalogID: "cat1",
 		},
@@ -175,9 +179,9 @@ func TestSingleJSONMessage(t *testing.T) {
 }
 
 func TestWrappedInTags(t *testing.T) {
-	msg := v09.ServerMessage{
-		Version: "v0.9",
-		UpdateDataModel: &v09.UpdateDataModel{
+	msg := a2ui.AgentMessage{
+		Version: a2ui.Version,
+		UpdateDataModel: &a2ui.UpdateDataModel{
 			SurfaceID: "s1",
 			Value:     map[string]any{"name": "Alice"},
 		},
@@ -207,9 +211,9 @@ func TestWrappedInTags(t *testing.T) {
 }
 
 func TestMixedTextAndJSON(t *testing.T) {
-	msg := v09.ServerMessage{
-		Version: "v0.9",
-		DeleteSurface: &v09.DeleteSurface{
+	msg := a2ui.AgentMessage{
+		Version: a2ui.Version,
+		DeleteSurface: &a2ui.DeleteSurface{
 			SurfaceID: "s1",
 		},
 	}
@@ -234,9 +238,9 @@ func TestMixedTextAndJSON(t *testing.T) {
 }
 
 func TestChunkedInput(t *testing.T) {
-	msg := v09.ServerMessage{
-		Version: "v0.9",
-		CreateSurface: &v09.CreateSurface{
+	msg := a2ui.AgentMessage{
+		Version: a2ui.Version,
+		CreateSurface: &a2ui.CreateSurface{
 			SurfaceID: "chunked",
 			CatalogID: "cat",
 		},
@@ -271,9 +275,9 @@ func TestChunkedInput(t *testing.T) {
 }
 
 func TestBareJSONMessage(t *testing.T) {
-	msg := v09.ServerMessage{
-		Version: "v0.9",
-		DeleteSurface: &v09.DeleteSurface{
+	msg := a2ui.AgentMessage{
+		Version: a2ui.Version,
+		DeleteSurface: &a2ui.DeleteSurface{
 			SurfaceID: "s1",
 		},
 	}
@@ -300,9 +304,9 @@ func TestBareJSONMessage(t *testing.T) {
 }
 
 func TestChunkedBareJSONMessage(t *testing.T) {
-	msg := v09.ServerMessage{
-		Version: "v0.9",
-		CreateSurface: &v09.CreateSurface{
+	msg := a2ui.AgentMessage{
+		Version: a2ui.Version,
+		CreateSurface: &a2ui.CreateSurface{
 			SurfaceID: "bare",
 			CatalogID: "cat",
 		},
@@ -358,21 +362,21 @@ func TestNonMessageJSONRemainsText(t *testing.T) {
 }
 
 func TestMultipleMessagesInOneBlock(t *testing.T) {
-	msg1 := v09.ServerMessage{
-		Version: "v0.9",
-		CreateSurface: &v09.CreateSurface{
+	msg1 := a2ui.AgentMessage{
+		Version: a2ui.Version,
+		CreateSurface: &a2ui.CreateSurface{
 			SurfaceID: "s1",
 			CatalogID: "cat",
 		},
 	}
-	msg2 := v09.ServerMessage{
-		Version: "v0.9",
-		UpdateComponents: &v09.UpdateComponents{
+	msg2 := a2ui.AgentMessage{
+		Version: a2ui.Version,
+		UpdateComponents: &a2ui.UpdateComponents{
 			SurfaceID: "s1",
-			Components: []v09.Component{
+			Components: []a2ui.Component{
 				{
 					ID:   "root",
-					Text: &v09.TextComponent{Text: v09.StringLiteral("hi")},
+					Text: &a2ui.TextComponent{Text: a2ui.StringLiteral("hi")},
 				},
 			},
 		},
@@ -402,16 +406,16 @@ func TestMultipleMessagesInOneBlock(t *testing.T) {
 }
 
 func TestMultipleBlocks(t *testing.T) {
-	msg1 := v09.ServerMessage{
-		Version: "v0.9",
-		CreateSurface: &v09.CreateSurface{
+	msg1 := a2ui.AgentMessage{
+		Version: a2ui.Version,
+		CreateSurface: &a2ui.CreateSurface{
 			SurfaceID: "s1",
 			CatalogID: "cat",
 		},
 	}
-	msg2 := v09.ServerMessage{
-		Version: "v0.9",
-		DeleteSurface: &v09.DeleteSurface{
+	msg2 := a2ui.AgentMessage{
+		Version: a2ui.Version,
+		DeleteSurface: &a2ui.DeleteSurface{
 			SurfaceID: "s1",
 		},
 	}
@@ -436,9 +440,9 @@ func TestMultipleBlocks(t *testing.T) {
 func TestEscapedBracesInStrings(t *testing.T) {
 	// A message where a string value contains braces — the parser must not
 	// be confused by them.
-	msg := v09.ServerMessage{
-		Version: "v0.9",
-		UpdateDataModel: &v09.UpdateDataModel{
+	msg := a2ui.AgentMessage{
+		Version: a2ui.Version,
+		UpdateDataModel: &a2ui.UpdateDataModel{
 			SurfaceID: "s1",
 			Value:     map[string]any{"code": "if (x) { y }"},
 		},
@@ -466,9 +470,9 @@ func TestEscapedBracesInStrings(t *testing.T) {
 func TestResetAndReuse(t *testing.T) {
 	p := NewParser()
 
-	msg := v09.ServerMessage{
-		Version: "v0.9",
-		CreateSurface: &v09.CreateSurface{
+	msg := a2ui.AgentMessage{
+		Version: a2ui.Version,
+		CreateSurface: &a2ui.CreateSurface{
 			SurfaceID: "s1",
 			CatalogID: "cat",
 		},
@@ -501,8 +505,8 @@ func collectText(parts []ResponsePart) string {
 	return b
 }
 
-func collectMessages(parts []ResponsePart) []v09.ServerMessage {
-	var msgs []v09.ServerMessage
+func collectMessages(parts []ResponsePart) []a2ui.AgentMessage {
+	var msgs []a2ui.AgentMessage
 	for _, p := range parts {
 		msgs = append(msgs, p.Messages...)
 	}

@@ -10,7 +10,8 @@ import (
 	"github.com/a2ui-project/a2ui/go/a2ui"
 )
 
-func (v *Validator) parseMessagesV1(data []byte) ([]a2ui.AgentMessage, error) {
+// ParseMessages parses a single A2UI 1.x message object or an array of them.
+func (v *Validator) ParseMessages(data []byte) ([]a2ui.AgentMessage, error) {
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
 		return nil, fmt.Errorf("a2uischema: empty payload")
@@ -29,7 +30,12 @@ func (v *Validator) parseMessagesV1(data []byte) ([]a2ui.AgentMessage, error) {
 	return []a2ui.AgentMessage{msg}, nil
 }
 
-func (v *Validator) validateMessagesV1(msgs []a2ui.AgentMessage) error {
+// ValidateMessages validates a batch of A2UI 1.x messages.
+// The validator's catalog must be a 1.x catalog.
+func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
+	if version := v.catalogVersion(); version != Version1 {
+		return fmt.Errorf("a2uischema: catalog version = %q, want %q", version, Version1)
+	}
 	if len(msgs) == 0 {
 		return fmt.Errorf("a2uischema: no messages to validate")
 	}

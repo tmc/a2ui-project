@@ -10,6 +10,7 @@ import (
 
 	"github.com/a2ui-project/a2ui/go/a2ui"
 	v09 "github.com/a2ui-project/a2ui/go/a2ui/v09"
+	a2uiv091 "github.com/a2ui-project/a2ui/go/a2ui/v091"
 	"github.com/a2ui-project/a2ui/go/a2uibuild"
 	"github.com/a2ui-project/a2ui/go/a2uistream"
 )
@@ -23,7 +24,7 @@ func TestSchemaManagerGenerateSystemPrompt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prompt, err := manager.GenerateSystemPrompt("role", "", "", nil, nil, nil, true, false, false)
+	prompt, err := manager.GenerateSystemPrompt(PromptOptions{RoleDescription: "role", IncludeSchema: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +48,7 @@ func TestSchemaManagerGenerateSystemPromptVersioned(t *testing.T) {
 	caps := &a2ui.RendererCapabilities{V1: &a2ui.RendererCapabilitiesV1{
 		SupportedCatalogIDs: []string{"https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"},
 	}}
-	prompt, err := manager.GenerateSystemPrompt("role", "", "", caps, nil, nil, true, false, false)
+	prompt, err := manager.GenerateSystemPrompt(PromptOptions{RoleDescription: "role", Capabilities: caps, IncludeSchema: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +69,7 @@ func TestSchemaManagerGenerateSystemPromptV091(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prompt, err := manager.GenerateSystemPrompt("role", "", "", nil, nil, nil, true, false, false)
+	prompt, err := manager.GenerateSystemPrompt(PromptOptions{RoleDescription: "role", IncludeSchema: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +90,7 @@ func TestValidatorAcceptsV091WireVersion(t *testing.T) {
 			CatalogID: "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json",
 		},
 	}
-	if err := validator.ValidateMessages([]v09.ServerMessage{msg}); err != nil {
+	if err := validator.ValidateMessagesV09([]v09.ServerMessage{msg}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -99,7 +100,7 @@ func TestValidatorAcceptsValidSurfaceMessages(t *testing.T) {
 	surface := a2uibuild.NewSurface("contact", "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json").
 		Add(a2uibuild.Column("root", a2uibuild.Children("greeting"))).
 		Add(a2uibuild.Text("greeting", a2ui.StringLiteral("Hello, world!")))
-	if err := validator.ValidateVersionMessages(surface.Messages()); err != nil {
+	if err := validator.ValidateMessages(surface.Messages()); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -132,7 +133,7 @@ func TestValidatorAcceptsV1AgentFunctionResponseNull(t *testing.T) {
 		Version:               a2ui.Version,
 		AgentFunctionResponse: &a2ui.FunctionResponse{FunctionCallID: "call-1"},
 	}
-	if err := validator.ValidateVersionMessages([]a2ui.AgentMessage{msg}); err != nil {
+	if err := validator.ValidateMessages([]a2ui.AgentMessage{msg}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -150,7 +151,7 @@ func TestValidatorRejectsDuplicateIDs(t *testing.T) {
 			},
 		},
 	}
-	err := validator.ValidateMessages([]v09.ServerMessage{msg})
+	err := validator.ValidateMessagesV09([]v09.ServerMessage{msg})
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
@@ -170,7 +171,7 @@ func TestValidatorRejectsOrphanedComponent(t *testing.T) {
 			},
 		},
 	}
-	err := validator.ValidateMessages([]v09.ServerMessage{msg})
+	err := validator.ValidateMessagesV09([]v09.ServerMessage{msg})
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
@@ -194,7 +195,7 @@ func TestValidatorRejectsUnknownFunction(t *testing.T) {
 			},
 		},
 	}
-	err := validator.ValidateMessages([]v09.ServerMessage{msg})
+	err := validator.ValidateMessagesV09([]v09.ServerMessage{msg})
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
@@ -211,7 +212,7 @@ func TestValidatorReportsStructuredInvalidPath(t *testing.T) {
 			Value:     "value",
 		},
 	}
-	err := validator.ValidateMessages([]v09.ServerMessage{msg})
+	err := validator.ValidateMessagesV09([]v09.ServerMessage{msg})
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
@@ -233,7 +234,7 @@ func TestParseAndValidate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a2uistream.ParseAndValidate(string(data), validator); err == nil {
+	if _, err := a2uistream.ParseAndValidateV09(string(data), validator); err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
 }
@@ -349,4 +350,59 @@ func button09(id string, action v09.Action, child string) v09.Component {
 
 func children09(ids ...string) v09.ChildList {
 	return v09.ChildList{IDs: ids}
+}
+
+func TestVersionMismatch(t *testing.T) {
+	v09Msgs := []v09.ServerMessage{{Version: v09.Version, DeleteSurface: &v09.DeleteSurface{SurfaceID: "s1"}}}
+	v1Msgs := []a2ui.AgentMessage{{Version: a2ui.Version, DeleteSurface: &a2ui.DeleteSurface{SurfaceID: "s1"}}}
+	if err := mustBasicValidator(t).ValidateMessages(v1Msgs); err == nil {
+		t.Error("v0.9 catalog: ValidateMessages(1.x) succeeded")
+	}
+	if err := mustBasicValidatorV1(t).ValidateMessagesV09(v09Msgs); err == nil {
+		t.Error("1.x catalog: ValidateMessagesV09 succeeded")
+	}
+	if err := NewValidator(nil).ValidateMessagesV09(v09Msgs); err == nil {
+		t.Error("nil catalog: ValidateMessagesV09 succeeded")
+	}
+
+	managers := make(map[Version]*SchemaManager)
+	for _, version := range []Version{Version09, Version091, Version1} {
+		basic, err := BasicCatalogConfig(version)
+		if err != nil {
+			t.Fatal(err)
+		}
+		managers[version], err = NewSchemaManager(version, []CatalogConfig{basic}, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	caps := &a2ui.RendererCapabilities{}
+	caps09 := &v09.ClientCapabilities{}
+	caps091 := &a2uiv091.ClientCapabilities{}
+	tests := []struct {
+		name    string
+		version Version
+		opts    PromptOptions
+		wantErr bool
+	}{
+		{"v0.9 default", Version09, PromptOptions{}, false},
+		{"v0.9.1 default", Version091, PromptOptions{}, false},
+		{"1.x default", Version1, PromptOptions{}, false},
+		{"1.x caps", Version1, PromptOptions{Capabilities: caps}, false},
+		{"v0.9 caps", Version09, PromptOptions{CapabilitiesV09: caps09}, false},
+		{"v0.9 caps on v0.9.1", Version091, PromptOptions{CapabilitiesV09: caps09}, false},
+		{"v0.9.1 caps", Version091, PromptOptions{CapabilitiesV091: caps091}, false},
+		{"1.x caps on v0.9", Version09, PromptOptions{Capabilities: caps}, true},
+		{"v0.9 caps on 1.x", Version1, PromptOptions{CapabilitiesV09: caps09}, true},
+		{"v0.9.1 caps on v0.9", Version09, PromptOptions{CapabilitiesV091: caps091}, true},
+		{"two caps", Version1, PromptOptions{Capabilities: caps, CapabilitiesV09: caps09}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := managers[tt.version].GenerateSystemPrompt(tt.opts)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("GenerateSystemPrompt: err = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }

@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/a2ui-project/a2ui/go/a2ui/v09"
+	"github.com/a2ui-project/a2ui/go/a2ui"
 )
 
 const (
@@ -18,10 +18,14 @@ const (
 // ResponsePart is a segment of the LLM response.
 // A part contains either conversational text, parsed A2UI messages, or both
 // (text preceding a JSON block and the messages extracted from it).
+//
+// Payload holds every A2UI message, whatever its protocol version.
+// Messages holds the 1.x messages among them, decoded; use
+// [ResponsePart.MessagesV09] to decode v0.9 messages.
 type ResponsePart struct {
 	Text     string              // conversational text
-	Messages []v09.ServerMessage // A2UI v0.9 messages (nil if text-only)
-	Payload  []map[string]any    // version-neutral A2UI messages (nil if text-only)
+	Messages []a2ui.AgentMessage // A2UI 1.x messages (nil if none)
+	Payload  []map[string]any    // A2UI messages of any version (nil if text-only)
 }
 
 // Parser incrementally parses A2UI messages from text chunks.
@@ -209,7 +213,7 @@ func (p *Parser) scanForOpen(parts *[]ResponsePart) (bool, bool) {
 			}
 			part := ResponsePart{}
 			if hasMessage {
-				part.Messages = []v09.ServerMessage{msg}
+				part.Messages = []a2ui.AgentMessage{msg}
 			}
 			if hasPayload {
 				part.Payload = []map[string]any{payload}
@@ -316,10 +320,10 @@ func (p *Parser) finishJSON() ([]ResponsePart, error) {
 }
 
 // extractObjects scans the jsonBuf for complete top-level JSON objects
-// and parses them as ServerMessages.
+// and parses them as A2UI messages.
 func (p *Parser) extractObjects() ([]ResponsePart, error) {
 	raw := p.jsonBuf.String()
-	var msgs []v09.ServerMessage
+	var msgs []a2ui.AgentMessage
 	var payload []map[string]any
 
 	depth := 0
@@ -371,20 +375,23 @@ func (p *Parser) extractObjects() ([]ResponsePart, error) {
 	return []ResponsePart{{Messages: msgs, Payload: payload}}, nil
 }
 
-// isA2UIMessage returns true if the message has at least one recognized payload.
-func isA2UIMessage(m v09.ServerMessage) bool {
-	return m.CreateSurface != nil ||
-		m.UpdateComponents != nil ||
-		m.UpdateDataModel != nil ||
-		m.DeleteSurface != nil
-}
-
-func parseMessage(obj string) (v09.ServerMessage, bool) {
-	var msg v09.ServerMessage
-	if err := json.Unmarshal([]byte(obj), &msg); err != nil || !isA2UIMessage(msg) {
-		return v09.ServerMessage{}, false
+// parseMessage decodes obj as a 1.x agent message.
+func parseMessage(obj string) (a2ui.AgentMessage, bool) {
+	var msg a2ui.AgentMessage
+	if err := json.Unmarshal([]byte(obj), &msg); err != nil || !isV1(msg.Version) {
+		return a2ui.AgentMessage{}, false
 	}
 	return msg, true
+}
+
+// isV1 reports whether version is a 1.x protocol version.
+func isV1(version string) bool {
+	return strings.HasPrefix(version, "v1.")
+}
+
+// isV09 reports whether version is v0.9 or a v0.9.x revision.
+func isV09(version string) bool {
+	return version == "v0.9" || strings.HasPrefix(version, "v0.9.")
 }
 
 func parsePayloadObject(obj string) (map[string]any, bool) {
