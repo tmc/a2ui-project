@@ -69,15 +69,17 @@ func (a *Action) UnmarshalJSON(data []byte) error {
 
 // MarshalJSON implements json.Marshaler for IconNameOrPath.
 func (i IconNameOrPath) MarshalJSON() ([]byte, error) {
-	switch countSet(i.Name != nil, i.Path != nil) {
+	switch countSet(i.Name != nil, i.SVGPath != nil, i.Binding != nil) {
 	case 1:
 		switch {
 		case i.Name != nil:
 			return json.Marshal(string(*i.Name))
-		case i.Path != nil:
+		case i.SVGPath != nil:
 			return json.Marshal(struct {
-				Path string `json:"path"`
-			}{Path: *i.Path})
+				SVGPath *DynamicString `json:"svgPath"`
+			}{SVGPath: i.SVGPath})
+		case i.Binding != nil:
+			return json.Marshal(i.Binding)
 		}
 	case 0:
 		return nil, fmt.Errorf("a2ui: IconNameOrPath has no value set")
@@ -96,16 +98,32 @@ func (i *IconNameOrPath) UnmarshalJSON(data []byte) error {
 		i.Name = &name
 		return nil
 	}
-	var obj struct {
-		Path string `json:"path"`
-	}
+	var obj map[string]json.RawMessage
 	if err := json.Unmarshal(data, &obj); err != nil {
 		return fmt.Errorf("a2ui: unmarshal icon name or path: %w", err)
 	}
-	if obj.Path == "" {
+	if len(obj) != 1 {
+		return fmt.Errorf("a2ui: icon name object must have exactly one of svgPath or path")
+	}
+	if raw, ok := obj["svgPath"]; ok {
+		i.SVGPath = new(DynamicString)
+		if err := json.Unmarshal(raw, i.SVGPath); err != nil {
+			return fmt.Errorf("a2ui: unmarshal icon svgPath: %w", err)
+		}
+		return nil
+	}
+	raw, ok := obj["path"]
+	if !ok {
+		return fmt.Errorf("a2ui: icon name object must have exactly one of svgPath or path")
+	}
+	var path string
+	if err := json.Unmarshal(raw, &path); err != nil {
+		return fmt.Errorf("a2ui: unmarshal icon path: %w", err)
+	}
+	if path == "" {
 		return fmt.Errorf("a2ui: icon path must not be empty")
 	}
-	i.Path = &obj.Path
+	i.Binding = &DataBinding{Path: path}
 	return nil
 }
 

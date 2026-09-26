@@ -371,7 +371,11 @@ func (v *Validator) validateImageComponentV1(component a2ui.ImageComponent) erro
 }
 
 func (v *Validator) validateIconComponentV1(component a2ui.IconComponent) error {
-	if component.Name.Name == nil && component.Name.Path == nil {
+	name := component.Name
+	switch {
+	case name.SVGPath != nil:
+		return v.validateDynamicStringV1(*name.SVGPath, 0)
+	case name.Name == nil && name.Binding == nil:
 		return fmt.Errorf("icon.name is required")
 	}
 	return nil

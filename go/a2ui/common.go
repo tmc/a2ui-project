@@ -71,11 +71,12 @@ type EventAction struct {
 	Context     map[string]DynamicValue `json:"context,omitempty"`
 }
 
-// IconNameOrPath is either a well-known icon name or a custom SVG path.
-// Exactly one field is non-nil.
+// IconNameOrPath is a well-known icon name, a custom SVG path, or a
+// binding to an icon name in the data model. Exactly one field is non-nil.
 type IconNameOrPath struct {
-	Name *IconName
-	Path *string
+	Name    *IconName
+	SVGPath *DynamicString
+	Binding *DataBinding
 }
 
 // Index returns a call to the @index system function, the 0-based index
