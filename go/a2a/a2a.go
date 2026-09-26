@@ -12,19 +12,22 @@ import (
 const (
 	A2UIExtensionBaseURI     = "https://a2ui.org/a2a-extension/a2ui"
 	MIMETypeKey              = "mimeType"
-	A2UIMIMETypeV09          = "application/json+a2ui"
-	A2UIMIMETypeV091         = "application/a2ui+json"
-	A2UIMIMETypeV1           = "application/a2ui+json"
-	MIMETypeV09              = A2UIMIMETypeV09
-	MIMETypeV091             = A2UIMIMETypeV091
-	MIMETypeV1               = A2UIMIMETypeV1
-	A2UIMIMEType             = A2UIMIMETypeV09
-	A2UIMIMETypeLatest       = A2UIMIMETypeV1
-	MIMEType                 = A2UIMIMEType
-	MIMETypeLatest           = A2UIMIMETypeLatest
 	AcceptsInlineCatalogsKey = "acceptsInlineCatalogs"
 	SupportedCatalogIDsKey   = "supportedCatalogIds"
 )
+
+// A2UI MIME types, carried in the [MIMETypeKey] metadata of a [DataPart].
+const (
+	A2UIMIMETypeV09  = "application/json+a2ui"
+	A2UIMIMETypeV091 = "application/a2ui+json"
+	A2UIMIMETypeV1   = "application/a2ui+json"
+
+	// A2UIMIMEType is the MIME type for the default protocol version, 1.x.
+	A2UIMIMEType = A2UIMIMETypeV1
+)
+
+// defaultVersion is the protocol version assumed when none is given.
+const defaultVersion = "v1.0"
 
 // DataPart is a transport-neutral A2A data part carrying A2UI JSON.
 // Its shape matches the official A2A Go SDK's DataPart.
@@ -32,9 +35,6 @@ type DataPart struct {
 	Data     map[string]any `json:"data"`
 	Metadata map[string]any `json:"metadata,omitempty"`
 }
-
-// Part is kept as a compatibility alias for earlier versions of this package.
-type Part = DataPart
 
 // AgentExtension is a transport-neutral A2A agent extension descriptor.
 // Its shape matches the official A2A Go SDK's AgentExtension.
@@ -44,9 +44,6 @@ type AgentExtension struct {
 	Required    bool           `json:"required,omitempty"`
 	URI         string         `json:"uri"`
 }
-
-// Extension is kept as a compatibility alias for earlier versions of this package.
-type Extension = AgentExtension
 
 // Versioned reports the A2UI protocol version carried by a payload.
 type Versioned interface {
@@ -90,6 +87,8 @@ func MarshalA2UIData(payload any) (map[string]any, error) {
 }
 
 // CreateDataPart marshals an A2UI payload into a transport-neutral A2A data part.
+// The MIME type follows the payload's version, taken from [Versioned] or a
+// "version" field, and defaults to [A2UIMIMEType].
 func CreateDataPart(payload any) (DataPart, error) {
 	return CreateDataPartForVersion(payload, "")
 }
@@ -109,26 +108,12 @@ func CreateDataPartForVersion(payload any, version string) (DataPart, error) {
 		version, _ = data["version"].(string)
 	}
 	part := DataPart{Data: data}
-	if version == "" {
-		part.SetMeta(MIMETypeKey, A2UIMIMETypeLatest)
-	} else {
-		part.SetMeta(MIMETypeKey, MIMETypeForVersion(version))
-	}
+	part.SetMeta(MIMETypeKey, MIMETypeForVersion(version))
 	return part, nil
 }
 
-// CreatePart marshals an A2UI payload into a transport-neutral A2A data part.
-func CreatePart(payload any) (Part, error) {
-	return CreateDataPart(payload)
-}
-
-// IsA2UIPart reports whether the part carries the A2UI MIME type.
+// IsA2UIPart reports whether the part carries an A2UI MIME type.
 func IsA2UIPart(part DataPart) bool {
-	return IsPart(part)
-}
-
-// IsPart reports whether the part carries the A2UI MIME type.
-func IsPart(part DataPart) bool {
 	if part.Metadata == nil {
 		return false
 	}
@@ -142,6 +127,7 @@ func IsA2UIMIMEType(mimeType string) bool {
 }
 
 // MIMETypeForVersion returns the A2A MIME type used by an A2UI version.
+// An empty version means the default version, 1.x.
 func MIMETypeForVersion(version string) string {
 	switch normalizeVersion(version) {
 	case "v0.9":
@@ -149,18 +135,13 @@ func MIMETypeForVersion(version string) string {
 	case "v0.9.1":
 		return A2UIMIMETypeV091
 	default:
-		return A2UIMIMETypeLatest
+		return A2UIMIMETypeV1
 	}
 }
 
 // A2UIData returns the structured A2UI payload if the part carries A2UI data.
 func A2UIData(part DataPart) (map[string]any, bool) {
-	return Data(part)
-}
-
-// Data returns the structured A2UI payload if the part carries A2UI data.
-func Data(part DataPart) (map[string]any, bool) {
-	if !IsPart(part) {
+	if !IsA2UIPart(part) {
 		return nil, false
 	}
 	return part.Data, true
@@ -168,12 +149,13 @@ func Data(part DataPart) (map[string]any, bool) {
 
 // AgentExtensionOptions configures an A2A agent extension descriptor.
 type AgentExtensionOptions struct {
-	Version               string
+	Version               string // protocol version, such as "v1.0"; empty means 1.x
 	AcceptsInlineCatalogs bool
 	SupportedCatalogIDs   []string
 }
 
 // NewAgentExtension constructs an A2UI extension descriptor.
+// An empty opts.Version means the default version, 1.x.
 func NewAgentExtension(opts AgentExtensionOptions) AgentExtension {
 	params := make(map[string]any)
 	if opts.AcceptsInlineCatalogs {
@@ -190,11 +172,6 @@ func NewAgentExtension(opts AgentExtensionOptions) AgentExtension {
 		Description: "Provides agent driven UI using the A2UI JSON format.",
 		Params:      params,
 	}
-}
-
-// NewExtension constructs an A2UI extension descriptor.
-func NewExtension(opts AgentExtensionOptions) Extension {
-	return NewAgentExtension(opts)
 }
 
 // SelectNewestRequestedExtension returns the newest requested extension also advertised by the agent.
@@ -229,7 +206,7 @@ func normalizeVersion(version string) string {
 	version = strings.TrimSpace(version)
 	version = strings.TrimPrefix(version, "v")
 	if version == "" {
-		return "v0.9"
+		return defaultVersion
 	}
 	return "v" + version
 }

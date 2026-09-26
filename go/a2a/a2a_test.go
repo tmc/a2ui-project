@@ -2,15 +2,15 @@ package a2a
 
 import "testing"
 
-func TestCreatePart(t *testing.T) {
+func TestCreateDataPart(t *testing.T) {
 	part, err := CreateDataPart(map[string]any{"version": "v0.9"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !IsPart(part) {
+	if !IsA2UIPart(part) {
 		t.Fatal("expected A2UI part")
 	}
-	if _, ok := Data(part); !ok {
+	if _, ok := A2UIData(part); !ok {
 		t.Fatal("expected A2UI data")
 	}
 	if got := part.Metadata[MIMETypeKey]; got != A2UIMIMETypeV09 {
@@ -18,7 +18,7 @@ func TestCreatePart(t *testing.T) {
 	}
 }
 
-func TestCreatePartUsesVersionedMIMEType(t *testing.T) {
+func TestCreateDataPartUsesVersionedMIMEType(t *testing.T) {
 	tests := []struct {
 		name    string
 		version string
@@ -27,7 +27,7 @@ func TestCreatePartUsesVersionedMIMEType(t *testing.T) {
 		{"v0.9", "v0.9", A2UIMIMETypeV09},
 		{"v0.9.1", "v0.9.1", A2UIMIMETypeV091},
 		{"v1.0", "v1.0", A2UIMIMETypeV1},
-		{"default", "", A2UIMIMETypeLatest},
+		{"default", "", A2UIMIMEType},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -38,7 +38,7 @@ func TestCreatePartUsesVersionedMIMEType(t *testing.T) {
 			if got := part.Metadata[MIMETypeKey]; got != tt.want {
 				t.Fatalf("mime type = %q, want %q", got, tt.want)
 			}
-			if !IsPart(part) {
+			if !IsA2UIPart(part) {
 				t.Fatal("expected A2UI part")
 			}
 		})
@@ -113,4 +113,24 @@ type versionedPayload struct {
 
 func (p versionedPayload) VersionString() string {
 	return p.Version
+}
+
+func TestDefaultVersionIsV1(t *testing.T) {
+	if A2UIMIMEType != A2UIMIMETypeV1 {
+		t.Fatalf("A2UIMIMEType = %q, want %q", A2UIMIMEType, A2UIMIMETypeV1)
+	}
+	if got := MIMETypeForVersion(""); got != A2UIMIMETypeV1 {
+		t.Fatalf("MIMETypeForVersion(\"\") = %q, want %q", got, A2UIMIMETypeV1)
+	}
+	part, err := CreateDataPart(map[string]any{"createSurface": map[string]any{"surfaceId": "s"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := part.Metadata[MIMETypeKey]; got != A2UIMIMETypeV1 {
+		t.Fatalf("unversioned part mime type = %q, want %q", got, A2UIMIMETypeV1)
+	}
+	ext := NewAgentExtension(AgentExtensionOptions{})
+	if want := A2UIExtensionBaseURI + "/v1.0"; ext.URI != want {
+		t.Fatalf("default extension URI = %q, want %q", ext.URI, want)
+	}
 }

@@ -27,7 +27,7 @@ func runA2AConformanceCase(t *testing.T, tc conformanceCase) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !IsPart(part) {
+		if !IsA2UIPart(part) {
 			t.Fatal("part is not A2UI")
 		}
 		expect := expectMap(t, tc.Expect)
@@ -36,8 +36,8 @@ func runA2AConformanceCase(t *testing.T, tc conformanceCase) {
 		}
 	case "is_a2ui_part":
 		part := DataPart{Data: map[string]any{}, Metadata: map[string]any{MIMETypeKey: tc.Args["mime_type"]}}
-		if got, want := IsPart(part), tc.Expect; got != want {
-			t.Fatalf("IsPart = %v, want %v", got, want)
+		if got, want := IsA2UIPart(part), tc.Expect; got != want {
+			t.Fatalf("IsA2UIPart = %v, want %v", got, want)
 		}
 	case "get_extension":
 		opts := AgentExtensionOptions{
