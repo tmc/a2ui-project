@@ -1,7 +1,6 @@
 package a2uistream
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/a2ui-project/a2ui/go/a2ui"
@@ -47,49 +46,28 @@ func ParseAndValidate(content string, validator MessageValidator) ([]ResponsePar
 
 // ParseAndValidateV09 is like [ParseAndValidate] for v0.9 messages.
 // It accepts the v0.9.x revisions, which share the v0.9 message types.
-func ParseAndValidateV09(content string, validator MessageValidatorV09) ([]ResponsePart, error) {
-	parts, err := parseAll(content)
+func ParseAndValidateV09(content string, validator MessageValidatorV09) ([]ResponsePartV09, error) {
+	all, err := parseAll(content)
 	if err != nil {
 		return nil, err
 	}
+	parts := partsV09(all)
 	for _, part := range parts {
 		for _, payload := range part.Payload {
 			if version := payloadVersion(payload); !isV09(version) {
 				return nil, fmt.Errorf("a2uistream: message version %q is not v0.9", version)
 			}
 		}
-		msgs, err := part.MessagesV09()
-		if err != nil {
-			return nil, err
+		if len(part.Messages) != len(part.Payload) {
+			return nil, fmt.Errorf("a2uistream: invalid v0.9 message")
 		}
-		if validator != nil && len(msgs) > 0 {
-			if err := validator.ValidateMessagesV09(msgs); err != nil {
+		if validator != nil && len(part.Messages) > 0 {
+			if err := validator.ValidateMessagesV09(part.Messages); err != nil {
 				return nil, err
 			}
 		}
 	}
 	return parts, nil
-}
-
-// MessagesV09 decodes the v0.9 and v0.9.x messages in p.Payload.
-// Messages of other versions are skipped.
-func (p ResponsePart) MessagesV09() ([]v09.ServerMessage, error) {
-	var msgs []v09.ServerMessage
-	for _, payload := range p.Payload {
-		if !isV09(payloadVersion(payload)) {
-			continue
-		}
-		data, err := json.Marshal(payload)
-		if err != nil {
-			return nil, fmt.Errorf("a2uistream: encode v0.9 message: %w", err)
-		}
-		var msg v09.ServerMessage
-		if err := json.Unmarshal(data, &msg); err != nil {
-			return nil, fmt.Errorf("a2uistream: decode v0.9 message: %w", err)
-		}
-		msgs = append(msgs, msg)
-	}
-	return msgs, nil
 }
 
 func payloadVersion(payload map[string]any) string {

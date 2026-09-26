@@ -20,8 +20,8 @@ const (
 // (text preceding a JSON block and the messages extracted from it).
 //
 // Payload holds every A2UI message, whatever its protocol version.
-// Messages holds the 1.x messages among them, decoded; use
-// [ResponsePart.MessagesV09] to decode v0.9 messages.
+// Messages holds the 1.x messages among them, decoded; for v0.9 messages
+// use [ResponsePartV09] via [ParserV09], [ReaderV09] or [ParseAndValidateV09].
 type ResponsePart struct {
 	Text     string              // conversational text
 	Messages []a2ui.AgentMessage // A2UI 1.x messages (nil if none)
@@ -118,7 +118,7 @@ func (p *Parser) Flush() ([]ResponsePart, error) {
 		if p.buf.Len() > 0 {
 			text := p.buf.String()
 			p.buf.Reset()
-			if len(parts) > 0 && parts[0].Messages == nil {
+			if len(parts) > 0 && parts[0].Payload == nil {
 				parts[0].Text += text
 			} else {
 				parts = append(parts, ResponsePart{Text: text})

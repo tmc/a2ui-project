@@ -54,19 +54,43 @@ func ExampleReader_Next_payload() {
 	// call-1
 }
 
-func ExampleResponsePart_MessagesV09() {
-	input := `<a2ui-json>{"version":"v0.9","deleteSurface":{"surfaceId":"old"}}</a2ui-json>`
+func ExampleParseAndValidateV09() {
+	input := `Removing <a2ui-json>{"version":"v0.9","deleteSurface":{"surfaceId":"old"}}</a2ui-json>`
 	parts, err := a2uistream.ParseAndValidateV09(input, nil)
 	if err != nil {
 		panic(err)
 	}
-	msgs, err := parts[0].MessagesV09()
-	if err != nil {
-		panic(err)
+	for _, part := range parts {
+		for _, msg := range part.Messages {
+			fmt.Println(msg.Version, msg.DeleteSurface.SurfaceID)
+		}
 	}
-	fmt.Println(len(parts[0].Messages), msgs[0].DeleteSurface.SurfaceID)
 	// Output:
-	// 0 old
+	// v0.9 old
+}
+
+func ExampleReaderV09_Next() {
+	input := `Before <a2ui-json>{"version":"v0.9","deleteSurface":{"surfaceId":"old"}}</a2ui-json> after`
+	r := a2uistream.NewReaderV09(strings.NewReader(input))
+	for {
+		part, err := r.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			panic(err)
+		}
+		if part.Text != "" {
+			fmt.Println(strings.TrimSpace(part.Text))
+		}
+		for _, msg := range part.Messages {
+			fmt.Println(msg.DeleteSurface.SurfaceID)
+		}
+	}
+	// Output:
+	// Before
+	// old
+	// after
 }
 
 func ExampleParseAndValidate() {
