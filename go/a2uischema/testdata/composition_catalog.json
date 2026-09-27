@@ -5,13 +5,33 @@
       "type": "object",
       "allowedChildren": ["Card", "Text"]
     },
+    "Row": {
+      "type": "object",
+      "allowedChildren": []
+    },
+    "List": {
+      "type": "object",
+      "allowedChildren": ["Card"]
+    },
     "Card": {
       "type": "object",
-      "allowedParents": ["Surface", "Column"]
+      "allowedParents": ["Surface", "Column", "List", "Modal", "Tabs"]
     },
     "Button": {
       "type": "object",
-      "allowedParents": ["Card"]
+      "allowedParents": ["Card", "Modal"]
+    },
+    "Modal": {
+      "type": "object",
+      "allowedChildren": ["Button", "Card"]
+    },
+    "Tabs": {
+      "type": "object",
+      "allowedChildren": ["Card"]
+    },
+    "Divider": {
+      "type": "object",
+      "allowedParents": []
     },
     "Text": {
       "type": "object"

@@ -30,9 +30,19 @@ var (
 	// component, a cycle or an orphaned component.
 	ErrInvalidTree = errors.New("a2uischema: invalid component tree")
 
-	// ErrNotAllowed reports a component whose parent or child is not
-	// permitted by the allowedParents or allowedChildren of the catalog.
-	ErrNotAllowed = errors.New("a2uischema: component not allowed")
+	// ErrUnallowedParent reports a component placed in a parent that
+	// its allowedParents in the catalog does not list, including a root
+	// component whose allowedParents does not list "Surface". It
+	// corresponds to the UNALLOWED_PARENT error code of the protocol
+	// (specification/v1_0/docs/a2ui_protocol.md, "Composition validation
+	// rules") and [a2ui.ErrorUnallowedParent].
+	ErrUnallowedParent = errors.New("a2uischema: unallowed parent")
+
+	// ErrUnallowedChild reports a component placed in a parent whose
+	// allowedChildren in the catalog does not list it. It corresponds
+	// to the UNALLOWED_CHILD error code of the protocol and
+	// [a2ui.ErrorUnallowedChild].
+	ErrUnallowedChild = errors.New("a2uischema: unallowed child")
 )
 
 // A ValidationError describes a validation failure.

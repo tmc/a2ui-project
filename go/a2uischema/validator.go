@@ -268,7 +268,7 @@ const surfaceType = "Surface"
 func (v *Validator) validateComposition(surfaceID string, tree map[string]placedComponent) error {
 	if root, ok := tree["root"]; ok {
 		if allowed, ok := v.allowedParents[root.typ]; ok && !slices.Contains(allowed, surfaceType) {
-			return invalid(ErrNotAllowed, root.path, fmt.Sprintf("surface %q: component %q (%s) is not allowed at the surface root; allowedParents is %v", surfaceID, "root", root.typ, allowed))
+			return invalid(ErrUnallowedParent, root.path, fmt.Sprintf("surface %q: component %q (%s) is not allowed at the surface root; allowedParents is %v", surfaceID, "root", root.typ, allowed))
 		}
 	}
 	for _, id := range slices.Sorted(maps.Keys(tree)) {
@@ -279,10 +279,10 @@ func (v *Validator) validateComposition(surfaceID string, tree map[string]placed
 				continue
 			}
 			if allowed, ok := v.allowedParents[child.typ]; ok && !slices.Contains(allowed, parent.typ) {
-				return invalid(ErrNotAllowed, ref.path, fmt.Sprintf("surface %q: component %q (%s) is not allowed in component %q (%s); allowedParents is %v", surfaceID, ref.to, child.typ, id, parent.typ, allowed))
+				return invalid(ErrUnallowedParent, ref.path, fmt.Sprintf("surface %q: component %q (%s) is not allowed in component %q (%s); allowedParents is %v", surfaceID, ref.to, child.typ, id, parent.typ, allowed))
 			}
 			if allowed, ok := v.allowedChildren[parent.typ]; ok && !slices.Contains(allowed, child.typ) {
-				return invalid(ErrNotAllowed, ref.path, fmt.Sprintf("surface %q: component %q (%s) does not allow child %q (%s); allowedChildren is %v", surfaceID, id, parent.typ, ref.to, child.typ, allowed))
+				return invalid(ErrUnallowedChild, ref.path, fmt.Sprintf("surface %q: component %q (%s) does not allow child %q (%s); allowedChildren is %v", surfaceID, id, parent.typ, ref.to, child.typ, allowed))
 			}
 		}
 	}

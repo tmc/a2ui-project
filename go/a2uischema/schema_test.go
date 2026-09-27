@@ -344,41 +344,61 @@ func TestValidatorComposition(t *testing.T) {
 	}
 	validator := catalog.Validator()
 
+	// See testdata/composition_catalog.json for the constraints.
+	create := func(surfaceID string) string {
+		return `{"version":"v1.0","createSurface":{"surfaceId":"` + surfaceID + `","catalogId":"https://example.com/composition_catalog.json"}}`
+	}
+	update := func(surfaceID, components string) string {
+		return `{"version":"v1.0","updateComponents":{"surfaceId":"` + surfaceID + `","components":[` + components + `]}}`
+	}
 	const (
-		create = `{"version":"v1.0","createSurface":{"surfaceId":"s1","catalogId":"https://example.com/composition_catalog.json"}}`
-		// Column allows Card and Text children; Card allows Surface and
-		// Column parents; Button allows only a Card parent.
-		allowed     = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["card","text"]},{"id":"card","component":"Card","child":"button"},{"id":"button","component":"Button","child":"label","action":{"event":{"name":"go"}}},{"id":"label","component":"Text","text":"Go"},{"id":"text","component":"Text","text":"hi"}]}}`
-		badParent   = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Card","child":"inner"},{"id":"inner","component":"Card","child":"label"},{"id":"label","component":"Text","text":"Go"}]}}`
-		badChild    = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["text","inner"]},{"id":"text","component":"Text","text":"hi"},{"id":"inner","component":"Column","children":["text2"]},{"id":"text2","component":"Text","text":"hi"}]}}`
-		badRoot     = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Button","child":"label","action":{"event":{"name":"go"}}},{"id":"label","component":"Text","text":"Go"}]}}`
-		parentFirst = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["later"]}]}}`
-		laterButton = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"later","component":"Button","child":"label","action":{"event":{"name":"go"}}},{"id":"label","component":"Text","text":"Go"}]}}`
-		laterCard   = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"later","component":"Card","child":"label"},{"id":"label","component":"Text","text":"Go"}]}}`
+		label  = `{"id":"label","component":"Text","text":"Go"}`
+		button = `{"id":"button","component":"Button","child":"label","action":{"event":{"name":"go"}}},` + label
+		card   = `{"id":"card","component":"Card","child":"label"},` + label
 	)
 	tests := []struct {
 		name string
 		msgs []string
-		path string // "" if valid
+		err  error // nil if valid
+		path string
 	}{
-		{"allowed", []string{create, allowed}, ""},
-		{"disallowed parent", []string{create, badParent}, "/1/updateComponents/components/0/child"},
-		{"disallowed child", []string{create, badChild}, "/1/updateComponents/components/0/children/1"},
-		{"disallowed root", []string{create, badRoot}, "/1/updateComponents/components/0"},
-		{"allowed across messages", []string{create, parentFirst, laterCard}, ""},
-		{"disallowed across messages", []string{create, parentFirst, laterButton}, "/1/updateComponents/components/0/children/0"},
+		{"allowed", []string{create("s1"), update("s1", `{"id":"root","component":"Column","children":["card","text"]},{"id":"card","component":"Card","child":"button"},{"id":"text","component":"Text","text":"hi"},`+button)}, nil, ""},
+		{"disallowed parent", []string{create("s1"), update("s1", `{"id":"root","component":"Card","child":"inner"},{"id":"inner","component":"Card","child":"label"},`+label)}, ErrUnallowedParent, "/1/updateComponents/components/0/child"},
+		{"disallowed child", []string{create("s1"), update("s1", `{"id":"root","component":"Column","children":["text","inner"]},{"id":"text","component":"Text","text":"hi"},{"id":"inner","component":"Column","children":["label"]},`+label)}, ErrUnallowedChild, "/1/updateComponents/components/0/children/1"},
+		{"disallowed root", []string{create("s1"), update("s1", `{"id":"root","component":"Button","child":"label","action":{"event":{"name":"go"}}},`+label)}, ErrUnallowedParent, "/1/updateComponents/components/0"},
+		{"allowed across messages", []string{create("s1"), update("s1", `{"id":"root","component":"Column","children":["card"]}`), update("s1", card)}, nil, ""},
+		{"disallowed across messages", []string{create("s1"), update("s1", `{"id":"root","component":"Column","children":["button"]}`), update("s1", button)}, ErrUnallowedParent, "/1/updateComponents/components/0/children/0"},
+
+		{"modal allowed", []string{create("s1"), update("s1", `{"id":"root","component":"Modal","trigger":"button","content":"card"},`+button+`,{"id":"card","component":"Card","child":"label"}`)}, nil, ""},
+		{"modal trigger", []string{create("s1"), update("s1", `{"id":"root","component":"Modal","trigger":"label","content":"card"},`+card)}, ErrUnallowedChild, "/1/updateComponents/components/0/trigger"},
+		{"modal content", []string{create("s1"), update("s1", `{"id":"root","component":"Modal","trigger":"button","content":"tabs"},{"id":"tabs","component":"Tabs","tabs":[{"title":"A","child":"card"}]},{"id":"card","component":"Card","child":"label"},`+button)}, ErrUnallowedChild, "/1/updateComponents/components/0/content"},
+		{"tabs allowed", []string{create("s1"), update("s1", `{"id":"root","component":"Tabs","tabs":[{"title":"A","child":"card"}]},`+card)}, nil, ""},
+		{"tabs child", []string{create("s1"), update("s1", `{"id":"root","component":"Tabs","tabs":[{"title":"A","child":"card"},{"title":"B","child":"label"}]},{"id":"card","component":"Card","child":"label"},`+label)}, ErrUnallowedChild, "/1/updateComponents/components/0/tabs/1/child"},
+		{"template allowed", []string{create("s1"), update("s1", `{"id":"root","component":"List","children":{"componentId":"card","path":"/items"}},`+card)}, nil, ""},
+		{"template child", []string{create("s1"), update("s1", `{"id":"root","component":"List","children":{"componentId":"label","path":"/items"}},`+label)}, ErrUnallowedChild, "/1/updateComponents/components/0/children/componentId"},
+
+		// An empty list allows no component; an omitted list allows any.
+		{"empty allowedChildren", []string{create("s1"), update("s1", `{"id":"root","component":"Row","children":["label"]},`+label)}, ErrUnallowedChild, "/1/updateComponents/components/0/children/0"},
+		{"empty allowedParents", []string{create("s1"), update("s1", `{"id":"root","component":"Divider"}`)}, ErrUnallowedParent, "/1/updateComponents/components/0"},
+		{"omitted lists", []string{create("s1"), update("s1", `{"id":"root","component":"Card","child":"col"},{"id":"col","component":"Column","children":["label"]},`+label)}, nil, ""},
+
+		{"multiple surfaces", []string{create("s1"), create("s2"), update("s1", `{"id":"root","component":"Card","child":"label"},`+label), update("s2", `{"id":"root","component":"Column","children":["button"]},`+button)}, ErrUnallowedParent, "/3/updateComponents/components/0/children/0"},
+		{"no edges across surfaces", []string{update("s1", `{"id":"root","component":"Column","children":["button"]}`), update("s2", button)}, nil, ""},
+		{"replaced child", []string{create("s1"), update("s1", `{"id":"root","component":"Column","children":["x"]},{"id":"x","component":"Card","child":"label"},`+label), update("s1", `{"id":"x","component":"Button","child":"label","action":{"event":{"name":"go"}}}`)}, ErrUnallowedParent, "/1/updateComponents/components/0/children/0"},
+		{"replaced root", []string{create("s1"), update("s1", `{"id":"root","component":"Card","child":"label"},`+label), update("s1", `{"id":"root","component":"Divider"}`)}, ErrUnallowedParent, "/2/updateComponents/components/0"},
+		{"recreated surface", []string{create("s1"), update("s1", `{"id":"root","component":"Card","child":"col"},{"id":"col","component":"Column","children":["x"]},{"id":"x","component":"Card","child":"label"},`+label), create("s1"), update("s1", `{"id":"root","component":"Card","child":"x"},{"id":"x","component":"Button","child":"label","action":{"event":{"name":"go"}}},`+label)}, nil, ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validator.ValidateJSON([]byte("[" + strings.Join(tt.msgs, ",") + "]"))
-			if tt.path == "" {
+			if tt.err == nil {
 				if err != nil {
 					t.Fatal(err)
 				}
 				return
 			}
-			if !errors.Is(err, ErrNotAllowed) {
-				t.Fatalf("ValidateJSON() = %v, want ErrNotAllowed", err)
+			if !errors.Is(err, tt.err) {
+				t.Fatalf("ValidateJSON() = %v, want %v", err, tt.err)
 			}
 			var ve *ValidationError
 			if errors.As(err, &ve) && ve.Path != tt.path {
