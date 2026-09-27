@@ -167,7 +167,7 @@ func Or(values []DynamicBoolean) DynamicBoolean {
 // Pluralize creates a function call for "pluralize".
 // Returns a localized string based on the Common Locale Data Repository (CLDR) plural category of the count (zero, one, two, few, many, other). Requires an 'other' fallback. For English, just use 'one' and 'other'.
 // Optional arguments that are nil or zero are left out of the call.
-func Pluralize(value DynamicNumber, zero DynamicString, one DynamicString, two DynamicString, few DynamicString, many DynamicString, other DynamicString) DynamicString {
+func Pluralize(value DynamicNumber, other DynamicString, zero DynamicString, one DynamicString, two DynamicString, few DynamicString, many DynamicString) DynamicString {
 	args := map[string]any{
 		"value": value,
 		"other": other,

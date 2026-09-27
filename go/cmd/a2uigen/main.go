@@ -1307,8 +1307,8 @@ func parseFunction(name string, raw json.RawMessage) (FuncDef, error) {
 		fd.ReturnType = "DynamicValue"
 	}
 
-	// The parameters are in the order of the schema's properties, which
-	// a Go map does not keep.
+	// Required parameters come first, then optional ones, each in the
+	// order of the schema's properties, which a Go map does not keep.
 	var order struct {
 		Properties struct {
 			Args struct {
@@ -1319,7 +1319,7 @@ func parseFunction(name string, raw json.RawMessage) (FuncDef, error) {
 	if err := json.Unmarshal(raw, &order); err != nil {
 		return FuncDef{}, fmt.Errorf("parse function %s: %w", name, err)
 	}
-	argNames, err := objectKeys(order.Properties.Args.Properties)
+	keys, err := objectKeys(order.Properties.Args.Properties)
 	if err != nil {
 		return FuncDef{}, fmt.Errorf("parse function %s args: %w", name, err)
 	}
@@ -1327,6 +1327,17 @@ func parseFunction(name string, raw json.RawMessage) (FuncDef, error) {
 	reqArgs := map[string]bool{}
 	for _, r := range fs.Properties.Args.Required {
 		reqArgs[r] = true
+	}
+	var argNames []string
+	for _, k := range keys {
+		if reqArgs[k] {
+			argNames = append(argNames, k)
+		}
+	}
+	for _, k := range keys {
+		if !reqArgs[k] {
+			argNames = append(argNames, k)
+		}
 	}
 
 	for _, aname := range argNames {

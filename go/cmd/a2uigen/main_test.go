@@ -118,6 +118,7 @@ func TestGenerateSDKRootLayout(t *testing.T) {
 		{filepath.Join("a2uistate", "example_test.go"), `"example.com/root/a2uistate"`},
 		{filepath.Join("a2uistate", "eval.go"), `"example.com/root"`},
 		{"zz_function.go", "func Length(value DynamicString, min *int, max *int) DynamicValidationResult {"},
+		{"zz_function.go", "func Pluralize(value DynamicNumber, other DynamicString, zero DynamicString, one DynamicString, two DynamicString, few DynamicString, many DynamicString) DynamicString {"},
 	}
 	for _, check := range checks {
 		data, err := os.ReadFile(filepath.Join(dir, check.path))
@@ -174,7 +175,7 @@ func TestParseFunctionArgs(t *testing.T) {
 		want   []FuncArg
 	}{
 		{
-			"schema order, not required first",
+			"required first, each in schema order",
 			`{"returnType": "string", "properties": {"args": {
 				"required": ["value", "other"],
 				"properties": {
@@ -185,10 +186,10 @@ func TestParseFunctionArgs(t *testing.T) {
 				}
 			}}}`,
 			[]FuncArg{
-				{"zero", "Zero", "DynamicString", false},
 				{"other", "Other", "DynamicString", true},
-				{"one", "One", "DynamicString", false},
 				{"value", "Value", "DynamicNumber", true},
+				{"zero", "Zero", "DynamicString", false},
+				{"one", "One", "DynamicString", false},
 			},
 		},
 		{
@@ -197,8 +198,8 @@ func TestParseFunctionArgs(t *testing.T) {
 				"required": ["value", "pattern"],
 				"properties": {
 					"value": {"$ref": "common_types.json#/$defs/DynamicString"},
-					"pattern": {"type": "string"},
 					"min": {"type": "integer"},
+					"pattern": {"type": "string"},
 					"max": {"type": "number"},
 					"strict": {"type": "boolean"},
 					"flags": {"type": "string"}
