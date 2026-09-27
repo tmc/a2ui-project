@@ -113,6 +113,7 @@ func TestGenerateSDKRootLayout(t *testing.T) {
 		{"zz_component.go", `const BasicCatalogID = "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"`},
 		{filepath.Join("a2uibuild", "zz_builders.go"), `import "example.com/root"`},
 		{filepath.Join("a2uischema", "manager.go"), `"example.com/root"`},
+		{filepath.Join("a2uistate", "example_test.go"), `"example.com/root/a2uistate"`},
 	}
 	for _, check := range checks {
 		data, err := os.ReadFile(filepath.Join(dir, check.path))
@@ -149,6 +150,7 @@ func TestGenerateSDKRootLayout(t *testing.T) {
 		filepath.Join(dir, "message.go"),
 		filepath.Join(dir, "a2uischema", "manager.go"),
 		filepath.Join(dir, "a2uibuild", "surface.go"),
+		filepath.Join(dir, "a2uistate", "example_test.go"),
 	} {
 		data, err := os.ReadFile(path)
 		if err != nil {

@@ -584,7 +584,7 @@ func copyStaticSDK(sdkRoot, specRoot, out string, cfg outputConfig) error {
 		return err
 	}
 
-	for _, pkg := range []string{"a2a", "a2uiadk", "a2uibuild", "a2uischema", "a2uistream"} {
+	for _, pkg := range []string{"a2a", "a2uiadk", "a2uibuild", "a2uischema", "a2uistate", "a2uistream"} {
 		dst := filepath.Join(out, pkg)
 		if err := os.RemoveAll(dst); err != nil {
 			return err
@@ -733,6 +733,10 @@ func rewriteSDKImports(root, modulePath, moduleRoot, sourceModule string, cfg ou
 	if err != nil {
 		return err
 	}
+	stateImport, err := helperImport("a2uistate")
+	if err != nil {
+		return err
+	}
 	streamImport, err := helperImport("a2uistream")
 	if err != nil {
 		return err
@@ -742,6 +746,7 @@ func rewriteSDKImports(root, modulePath, moduleRoot, sourceModule string, cfg ou
 		{sourceModule + "/a2uiadk", adkImport},
 		{sourceModule + "/a2uibuild", buildImport},
 		{sourceModule + "/a2uischema", schemaImport},
+		{sourceModule + "/a2uistate", stateImport},
 		{sourceModule + "/a2uistream", streamImport},
 		{sourceModule + "/a2ui", cfg.A2UIImport},
 		{sourceModule, modulePath},
