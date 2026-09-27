@@ -470,3 +470,22 @@ func normalizeJSON(v any) {
 func ptr[T any](v T) *T {
 	return &v
 }
+
+func TestMessageDefaultVersion(t *testing.T) {
+	for _, m := range []any{
+		AgentMessage{DeleteSurface: &DeleteSurface{SurfaceID: "s1"}},
+		RendererMessage{Error: &RendererError{Code: ErrorValidationFailed, SurfaceID: "s1", Message: "bad", Path: "/x"}},
+	} {
+		data, err := json.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got struct{ Version string }
+		if err := json.Unmarshal(data, &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.Version != Version {
+			t.Errorf("Marshal(%T) version = %q, want %q", m, got.Version, Version)
+		}
+	}
+}

@@ -7,9 +7,13 @@ import (
 )
 
 // MarshalJSON implements json.Marshaler for AgentMessage.
+// An empty Version is encoded as [Version].
 func (m AgentMessage) MarshalJSON() ([]byte, error) {
 	if err := m.validate(); err != nil {
 		return nil, err
+	}
+	if m.Version == "" {
+		m.Version = Version
 	}
 	type alias AgentMessage
 	return json.Marshal(alias(m))
@@ -117,9 +121,13 @@ func (r *FunctionResponse) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSON implements json.Marshaler for RendererMessage.
+// An empty Version is encoded as [Version].
 func (m RendererMessage) MarshalJSON() ([]byte, error) {
 	if err := m.validate(); err != nil {
 		return nil, err
+	}
+	if m.Version == "" {
+		m.Version = Version
 	}
 	type alias RendererMessage
 	return json.Marshal(alias(m))
