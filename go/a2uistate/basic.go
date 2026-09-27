@@ -227,6 +227,9 @@ func formatCurrency(_ *Evaluator, _ string, args map[string]any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if strings.TrimSpace(code) == "" {
+		return nil, argError("formatCurrency", "currency is empty")
+	}
 	minFrac, maxFrac, grouping, err := numberOptions("formatCurrency", args, 2, 2)
 	if err != nil {
 		return nil, err
