@@ -15,9 +15,6 @@ type AgentMessage struct {
 	AgentFunctionResponse *FunctionResponse     `json:"agentFunctionResponse,omitempty"`
 }
 
-// VersionString returns the A2UI protocol version carried by m.
-func (m AgentMessage) VersionString() string { return m.Version }
-
 // CreateSurface signals the renderer to create a new surface.
 type CreateSurface struct {
 	SurfaceID     string         `json:"surfaceId"`
@@ -81,9 +78,6 @@ type RendererMessage struct {
 	RendererFunctionResponse *FunctionResponse  `json:"rendererFunctionResponse,omitempty"`
 	Error                    *RendererError     `json:"error,omitempty"`
 }
-
-// VersionString returns the A2UI protocol version carried by m.
-func (m RendererMessage) VersionString() string { return m.Version }
 
 // ActionEvent reports a user-initiated action from a component.
 type ActionEvent struct {
