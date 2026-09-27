@@ -11,13 +11,13 @@ func TestFunctionOptionalArgs(t *testing.T) {
 		v    any
 		want string
 	}{
-		{"length min", Length(StringBinding("/name"), nil, new(3)), `{"call":"length","args":{"min":3,"value":{"path":"/name"}}}`},
-		{"length both", Length(StringBinding("/name"), new(10), new(0)), `{"call":"length","args":{"max":10,"min":0,"value":{"path":"/name"}}}`},
-		{"numeric max", Numeric(NumberBinding("/age"), new(120.0), nil), `{"call":"numeric","args":{"max":120,"value":{"path":"/age"}}}`},
+		{"length min", Length(StringBinding("/name"), new(3), nil), `{"call":"length","args":{"min":3,"value":{"path":"/name"}}}`},
+		{"length both", Length(StringBinding("/name"), new(0), new(10)), `{"call":"length","args":{"max":10,"min":0,"value":{"path":"/name"}}}`},
+		{"numeric max", Numeric(NumberBinding("/age"), nil, new(120.0)), `{"call":"numeric","args":{"max":120,"value":{"path":"/age"}}}`},
 		{"format number", FormatNumber(NumberLiteral(1.5), DynamicNumber{}, DynamicBoolean{}), `{"call":"formatNumber","args":{"value":1.5}}`},
 		{"format number decimals", FormatNumber(NumberLiteral(1.5), NumberLiteral(2), BoolBinding("/g")), `{"call":"formatNumber","args":{"decimals":2,"grouping":{"path":"/g"},"value":1.5}}`},
-		{"format currency", FormatCurrency(StringLiteral("USD"), NumberLiteral(1), DynamicNumber{}, DynamicBoolean{}), `{"call":"formatCurrency","args":{"currency":"USD","value":1}}`},
-		{"pluralize", Pluralize(NumberBinding("/n"), StringLiteral("items"), DynamicString{}, DynamicString{}, StringLiteral("item"), DynamicString{}, DynamicString{}), `{"call":"pluralize","args":{"one":"item","other":"items","value":{"path":"/n"}}}`},
+		{"format currency", FormatCurrency(NumberLiteral(1), StringLiteral("USD"), DynamicNumber{}, DynamicBoolean{}), `{"call":"formatCurrency","args":{"currency":"USD","value":1}}`},
+		{"pluralize", Pluralize(NumberBinding("/n"), DynamicString{}, StringLiteral("item"), DynamicString{}, DynamicString{}, DynamicString{}, StringLiteral("items")), `{"call":"pluralize","args":{"one":"item","other":"items","value":{"path":"/n"}}}`},
 		{"regex", Regex(StringBinding("/zip"), `^\d{5}$`), `{"call":"regex","args":{"pattern":"^\\d{5}$","value":{"path":"/zip"}}}`},
 	}
 	for _, tt := range tests {

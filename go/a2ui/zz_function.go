@@ -29,10 +29,10 @@ func Email(value DynamicString) DynamicValidationResult {
 // FormatCurrency creates a function call for "formatCurrency".
 // Formats a number as a currency string.
 // Optional arguments that are nil or zero are left out of the call.
-func FormatCurrency(currency DynamicString, value DynamicNumber, decimals DynamicNumber, grouping DynamicBoolean) DynamicString {
+func FormatCurrency(value DynamicNumber, currency DynamicString, decimals DynamicNumber, grouping DynamicBoolean) DynamicString {
 	args := map[string]any{
-		"currency": currency,
 		"value":    value,
+		"currency": currency,
 	}
 	if decimals != (DynamicNumber{}) {
 		args["decimals"] = decimals
@@ -48,10 +48,10 @@ func FormatCurrency(currency DynamicString, value DynamicNumber, decimals Dynami
 
 // FormatDate creates a function call for "formatDate".
 // Formats a timestamp into a string using a pattern.
-func FormatDate(format DynamicString, value DynamicValue) DynamicString {
+func FormatDate(value DynamicValue, format DynamicString) DynamicString {
 	args := map[string]any{
-		"format": format,
 		"value":  value,
+		"format": format,
 	}
 	return DynamicString{FunctionCall: &FunctionCall{
 		Call: "formatDate",
@@ -93,15 +93,15 @@ func FormatString(value DynamicString) DynamicString {
 // Length creates a function call for "length".
 // Checks string length constraints.
 // Optional arguments that are nil or zero are left out of the call.
-func Length(value DynamicString, max *int, min *int) DynamicValidationResult {
+func Length(value DynamicString, min *int, max *int) DynamicValidationResult {
 	args := map[string]any{
 		"value": value,
 	}
-	if max != nil {
-		args["max"] = *max
-	}
 	if min != nil {
 		args["min"] = *min
+	}
+	if max != nil {
+		args["max"] = *max
 	}
 	return DynamicValidationResult{FunctionCall: &FunctionCall{
 		Call: "length",
@@ -124,15 +124,15 @@ func Not(value DynamicBoolean) DynamicBoolean {
 // Numeric creates a function call for "numeric".
 // Checks numeric range constraints.
 // Optional arguments that are nil or zero are left out of the call.
-func Numeric(value DynamicNumber, max *float64, min *float64) DynamicValidationResult {
+func Numeric(value DynamicNumber, min *float64, max *float64) DynamicValidationResult {
 	args := map[string]any{
 		"value": value,
 	}
-	if max != nil {
-		args["max"] = *max
-	}
 	if min != nil {
 		args["min"] = *min
+	}
+	if max != nil {
+		args["max"] = *max
 	}
 	return DynamicValidationResult{FunctionCall: &FunctionCall{
 		Call: "numeric",
@@ -167,16 +167,13 @@ func Or(values []DynamicBoolean) DynamicBoolean {
 // Pluralize creates a function call for "pluralize".
 // Returns a localized string based on the Common Locale Data Repository (CLDR) plural category of the count (zero, one, two, few, many, other). Requires an 'other' fallback. For English, just use 'one' and 'other'.
 // Optional arguments that are nil or zero are left out of the call.
-func Pluralize(value DynamicNumber, other DynamicString, few DynamicString, many DynamicString, one DynamicString, two DynamicString, zero DynamicString) DynamicString {
+func Pluralize(value DynamicNumber, zero DynamicString, one DynamicString, two DynamicString, few DynamicString, many DynamicString, other DynamicString) DynamicString {
 	args := map[string]any{
 		"value": value,
 		"other": other,
 	}
-	if few != (DynamicString{}) {
-		args["few"] = few
-	}
-	if many != (DynamicString{}) {
-		args["many"] = many
+	if zero != (DynamicString{}) {
+		args["zero"] = zero
 	}
 	if one != (DynamicString{}) {
 		args["one"] = one
@@ -184,8 +181,11 @@ func Pluralize(value DynamicNumber, other DynamicString, few DynamicString, many
 	if two != (DynamicString{}) {
 		args["two"] = two
 	}
-	if zero != (DynamicString{}) {
-		args["zero"] = zero
+	if few != (DynamicString{}) {
+		args["few"] = few
+	}
+	if many != (DynamicString{}) {
+		args["many"] = many
 	}
 	return DynamicString{FunctionCall: &FunctionCall{
 		Call: "pluralize",

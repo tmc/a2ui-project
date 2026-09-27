@@ -117,9 +117,9 @@ func ExampleTextFieldComponent() {
 }
 
 func ExampleLength() {
-	// Optional arguments are pointers; nil leaves them out.
+	// The optional min and max are pointers; nil leaves them out.
 	check := a2ui.CheckRule{
-		Condition: a2ui.Length(a2ui.StringBinding("/password"), nil, new(8)),
+		Condition: a2ui.Length(a2ui.StringBinding("/password"), new(8), nil),
 		Message:   "Use at least 8 characters",
 	}
 	data, _ := json.Marshal(check)

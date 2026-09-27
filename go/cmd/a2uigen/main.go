@@ -1307,21 +1307,26 @@ func parseFunction(name string, raw json.RawMessage) (FuncDef, error) {
 		fd.ReturnType = "DynamicValue"
 	}
 
-	// Required args come first, in the order of the schema's required
-	// list, then the optional args by name.
+	// The parameters are in the order of the schema's properties, which
+	// a Go map does not keep.
+	var order struct {
+		Properties struct {
+			Args struct {
+				Properties json.RawMessage `json:"properties"`
+			} `json:"args"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(raw, &order); err != nil {
+		return FuncDef{}, fmt.Errorf("parse function %s: %w", name, err)
+	}
+	argNames, err := objectKeys(order.Properties.Args.Properties)
+	if err != nil {
+		return FuncDef{}, fmt.Errorf("parse function %s args: %w", name, err)
+	}
 	props := fs.Properties.Args.Properties
-	var argNames []string
 	reqArgs := map[string]bool{}
 	for _, r := range fs.Properties.Args.Required {
-		if _, ok := props[r]; ok && !reqArgs[r] {
-			reqArgs[r] = true
-			argNames = append(argNames, r)
-		}
-	}
-	for _, aname := range sortedKeys(props) {
-		if !reqArgs[aname] {
-			argNames = append(argNames, aname)
-		}
+		reqArgs[r] = true
 	}
 
 	for _, aname := range argNames {
@@ -1455,6 +1460,33 @@ func identifierWords(s string) []string {
 
 func goFieldName(s string) string {
 	return pascalCase(s)
+}
+
+// objectKeys returns the keys of the JSON object data in order, or nil
+// if data is empty or null.
+func objectKeys(data json.RawMessage) ([]string, error) {
+	if len(data) == 0 || string(data) == "null" {
+		return nil, nil
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	if tok, err := dec.Token(); err != nil {
+		return nil, err
+	} else if tok != json.Delim('{') {
+		return nil, fmt.Errorf("got %v, want object", tok)
+	}
+	var keys []string
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, tok.(string))
+		var skip json.RawMessage
+		if err := dec.Decode(&skip); err != nil {
+			return nil, err
+		}
+	}
+	return keys, nil
 }
 
 func sortedKeys[V any](m map[string]V) []string {

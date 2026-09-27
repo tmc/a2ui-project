@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -116,7 +117,7 @@ func TestGenerateSDKRootLayout(t *testing.T) {
 		{filepath.Join("a2uischema", "manager.go"), `"example.com/root"`},
 		{filepath.Join("a2uistate", "example_test.go"), `"example.com/root/a2uistate"`},
 		{filepath.Join("a2uistate", "eval.go"), `"example.com/root"`},
-		{"zz_function.go", "func Length(value DynamicString, max *int, min *int) DynamicValidationResult {"},
+		{"zz_function.go", "func Length(value DynamicString, min *int, max *int) DynamicValidationResult {"},
 	}
 	for _, check := range checks {
 		data, err := os.ReadFile(filepath.Join(dir, check.path))
@@ -173,7 +174,7 @@ func TestParseFunctionArgs(t *testing.T) {
 		want   []FuncArg
 	}{
 		{
-			"required order then optional by name",
+			"schema order, not required first",
 			`{"returnType": "string", "properties": {"args": {
 				"required": ["value", "other"],
 				"properties": {
@@ -184,10 +185,10 @@ func TestParseFunctionArgs(t *testing.T) {
 				}
 			}}}`,
 			[]FuncArg{
-				{"value", "Value", "DynamicNumber", true},
+				{"zero", "Zero", "DynamicString", false},
 				{"other", "Other", "DynamicString", true},
 				{"one", "One", "DynamicString", false},
-				{"zero", "Zero", "DynamicString", false},
+				{"value", "Value", "DynamicNumber", true},
 			},
 		},
 		{
@@ -206,10 +207,10 @@ func TestParseFunctionArgs(t *testing.T) {
 			[]FuncArg{
 				{"value", "Value", "DynamicString", true},
 				{"pattern", "Pattern", "string", true},
-				{"flags", "Flags", "*string", false},
-				{"max", "Max", "*float64", false},
 				{"min", "Min", "*int", false},
+				{"max", "Max", "*float64", false},
 				{"strict", "Strict", "*bool", false},
+				{"flags", "Flags", "*string", false},
 			},
 		},
 		{
@@ -219,10 +220,11 @@ func TestParseFunctionArgs(t *testing.T) {
 				"a": {"$ref": "common_types.json#/$defs/DynamicBoolean"}
 			}}}}`,
 			[]FuncArg{
-				{"a", "A", "DynamicBoolean", false},
 				{"b", "B", "*int", false},
+				{"a", "A", "DynamicBoolean", false},
 			},
 		},
+		{"no args", `{"returnType": "string"}`, nil},
 	}
 	for _, tt := range tests {
 		fd, err := parseFunction("f", json.RawMessage(tt.schema))
@@ -238,6 +240,29 @@ func TestParseFunctionArgs(t *testing.T) {
 			if fd.Args[i] != tt.want[i] {
 				t.Errorf("%s: arg %d = %+v, want %+v", tt.name, i, fd.Args[i], tt.want[i])
 			}
+		}
+	}
+}
+
+func TestObjectKeys(t *testing.T) {
+	tests := []struct {
+		in   string
+		want []string
+	}{
+		{``, nil},
+		{`null`, nil},
+		{`{}`, nil},
+		{`{"b": 1, "a": {"x": [1, {"y": 2}]}, "c": "s"}`, []string{"b", "a", "c"}},
+	}
+	for _, tt := range tests {
+		got, err := objectKeys(json.RawMessage(tt.in))
+		if err != nil || !slices.Equal(got, tt.want) {
+			t.Errorf("objectKeys(%s) = %q, %v, want %q", tt.in, got, err, tt.want)
+		}
+	}
+	for _, in := range []string{`[]`, `{"a"`, `{"a": }`} {
+		if _, err := objectKeys(json.RawMessage(in)); err == nil {
+			t.Errorf("objectKeys(%s): no error", in)
 		}
 	}
 }
