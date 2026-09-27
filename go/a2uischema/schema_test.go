@@ -313,9 +313,31 @@ func TestValidationErrorMessage(t *testing.T) {
 }
 
 func TestParseAndValidate(t *testing.T) {
-	const bad = `{"version":"v1.0","createSurface":{"surfaceId":"s1","catalogId":"https://example.com/other.json"}}`
-	if _, err := a2uistream.ParseAndValidate(bad, mustBasicValidator(t)); err == nil {
-		t.Fatal("expected validation error, got nil")
+	const create = `{"version":"v1.0","createSurface":{"surfaceId":"s1"}}`
+	update := func(component string) string {
+		return `<a2ui-json>[` + create + `,{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[` + component + `]}}]</a2ui-json>`
+	}
+	tests := []struct {
+		name    string
+		content string
+		want    error // with the basic validator; nil accepts everything
+	}{
+		{"valid", update(`{"id":"root","component":"Text","text":"hi"}`), nil},
+		{"other catalog", `{"version":"v1.0","createSurface":{"surfaceId":"s1","catalogId":"https://example.com/other.json"}}`, ErrInvalidMessage},
+		{"button without child", update(`{"id":"root","component":"Button","action":{"event":{"name":"go"}}}`), ErrInvalidMessage},
+		{"button without action", update(`{"id":"root","component":"Button","child":"t"},{"id":"t","component":"Text","text":"go"}`), ErrInvalidMessage},
+		{"function call returnType", update(`{"id":"root","component":"Text","text":{"call":"formatString","args":{"value":"x"},"returnType":"string"}}`), ErrInvalidMessage},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := a2uistream.ParseAndValidate(tt.content, nil); err != nil {
+				t.Fatalf("ParseAndValidate(nil validator) = %v, want nil", err)
+			}
+			_, err := a2uistream.ParseAndValidate(tt.content, mustBasicValidator(t))
+			if tt.want == nil && err != nil || !errors.Is(err, tt.want) {
+				t.Fatalf("ParseAndValidate() = %v, want %v", err, tt.want)
+			}
+		})
 	}
 }
 

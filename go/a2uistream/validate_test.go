@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 
@@ -100,5 +101,33 @@ func TestParseResponseErrorPrefix(t *testing.T) {
 		if err == nil || strings.Count(err.Error(), "a2uistream:") != 1 || !strings.HasPrefix(err.Error(), "a2uistream: ") {
 			t.Errorf("ParseResponse(%q) = %v, want one a2uistream: prefix", content, err)
 		}
+	}
+}
+
+type jsonRecordingValidator struct {
+	recordingValidator
+	data []string
+}
+
+func (r *jsonRecordingValidator) ValidateJSON(data []byte) error {
+	r.data = append(r.data, string(data))
+	return r.err
+}
+
+func TestParseAndValidateJSON(t *testing.T) {
+	const content = `<a2ui-json>{"version":"v1.0","deleteSurface":{"surfaceId":"s1","extra":1}}</a2ui-json>`
+	var r jsonRecordingValidator
+	if _, err := ParseAndValidate(content, &r); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{`[{"deleteSurface":{"extra":1,"surfaceId":"s1"},"version":"v1.0"}]`}
+	if len(r.batches) != 0 || !slices.Equal(r.data, want) {
+		t.Fatalf("ValidateMessages got %v, ValidateJSON got %q, want only ValidateJSON with %q", r.batches, r.data, want)
+	}
+
+	errInvalid := errors.New("invalid")
+	r = jsonRecordingValidator{recordingValidator: recordingValidator{err: errInvalid}}
+	if _, err := ParseAndValidate(content, &r); !errors.Is(err, errInvalid) {
+		t.Fatalf("ParseAndValidate() = %v, want validator error", err)
 	}
 }
