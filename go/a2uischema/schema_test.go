@@ -95,44 +95,110 @@ func TestValidatorRejectsOtherVersions(t *testing.T) {
 	}
 }
 
-func TestValidatorStructuredErrors(t *testing.T) {
+func TestValidatorErrors(t *testing.T) {
 	tests := []struct {
-		name      string
-		msgs      string
-		code      ValidationCode
-		component string
+		name string
+		msgs string
+		want error
+		path string
 	}{
 		{
-			name:      "duplicate id",
-			msgs:      `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["dup"]},{"id":"dup","component":"Text","text":"one"},{"id":"dup","component":"Text","text":"two"}]}}`,
-			code:      ValidationDuplicateComponent,
-			component: "dup",
+			name: "version",
+			msgs: `{"version":"v0.9","deleteSurface":{"surfaceId":"s1"}}`,
+			want: ErrVersionMismatch,
+			path: "/version",
+		},
+		{
+			name: "missing field",
+			msgs: `[{"version":"v1.0","deleteSurface":{}}]`,
+			want: ErrInvalidMessage,
+			path: "/0/deleteSurface/surfaceId",
+		},
+		{
+			name: "syntax",
+			msgs: `{"version":`,
+			want: ErrInvalidMessage,
+		},
+		{
+			name: "duplicate id",
+			msgs: `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["dup"]},{"id":"dup","component":"Text","text":"one"},{"id":"dup","component":"Text","text":"two"}]}}`,
+			want: ErrInvalidTree,
+			path: "/updateComponents/components/2/id",
 		},
 		{
 			name: "unknown function",
 			msgs: `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Button","child":"label","action":{"functionCall":{"call":"definitelyUnknown"}}},{"id":"label","component":"Text","text":"Run"}]}}`,
-			code: ValidationUnknownFunction,
+			want: ErrUnknownFunction,
+			path: "/updateComponents/components/0/action/functionCall/call",
 		},
 		{
 			name: "invalid path",
 			msgs: `{"version":"v1.0","updateDataModel":{"surfaceId":"s1","path":"/bad~path","value":"value"}}`,
-			code: ValidationInvalidPath,
+			want: ErrInvalidMessage,
+			path: "/updateDataModel/path",
+		},
+		{
+			name: "invalid binding",
+			msgs: `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Text","text":{"path":"~bad"}}]}}`,
+			want: ErrInvalidMessage,
+			path: "/updateComponents/components/0/text/path",
 		},
 		{
 			name: "orphan",
 			msgs: `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["greeting"]},{"id":"greeting","component":"Text","text":"hello"},{"id":"extra","component":"Text","text":"orphan"}]}}`,
-			code: ValidationOrphanedComponent,
+			want: ErrInvalidTree,
+			path: "/updateComponents/components/2",
+		},
+		{
+			name: "unknown reference",
+			msgs: `[{"version":"v1.0","createSurface":{"surfaceId":"s1"}},{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["a","b"]},{"id":"a","component":"Text","text":"a"}]}}]`,
+			want: ErrInvalidTree,
+			path: "/1/updateComponents/components/0/children/1",
 		},
 	}
 	validator := mustBasicValidator(t)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validator.ValidateJSON([]byte(tt.msgs))
-			if err == nil {
-				t.Fatal("expected validation error, got nil")
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("ValidateJSON() = %v, want %v", err, tt.want)
 			}
-			assertValidationError(t, err, tt.code, tt.component)
+			var ve *ValidationError
+			if !errors.As(err, &ve) {
+				t.Fatalf("errors.As(%v, *ValidationError) = false", err)
+			}
+			if ve.Path != tt.path {
+				t.Errorf("Path = %q, want %q", ve.Path, tt.path)
+			}
+			if !strings.HasPrefix(err.Error(), "a2uischema: ") {
+				t.Errorf("Error() = %q, want a2uischema: prefix", err)
+			}
 		})
+	}
+}
+
+func TestValidatorUnknownComponent(t *testing.T) {
+	catalog, err := mustBasicManager(t).SelectedCatalog(nil, []string{"Text"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const msgs = `[{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["t"]},{"id":"t","component":"Text","text":"hi"}]}}]`
+	err = catalog.Validator().ValidateJSON([]byte(msgs))
+	var ve *ValidationError
+	if !errors.As(err, &ve) || ve.Err != ErrUnknownComponent {
+		t.Fatalf("ValidateJSON() = %v, want ErrUnknownComponent", err)
+	}
+	if want := "/0/updateComponents/components/0/component"; ve.Path != want {
+		t.Errorf("Path = %q, want %q", ve.Path, want)
+	}
+}
+
+func TestValidationErrorMessage(t *testing.T) {
+	const msgs = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Card"}]}}`
+	err := mustBasicValidator(t).ValidateJSON([]byte(msgs))
+	const want = "a2uischema: message[0]: updateComponents: component[0] (root): card.child is required"
+	if err == nil || err.Error() != want {
+		t.Fatalf("ValidateJSON() = %v, want %s", err, want)
 	}
 }
 
@@ -187,18 +253,4 @@ func mustBasicValidator(t *testing.T) *Validator {
 		t.Fatal(err)
 	}
 	return catalog.Validator()
-}
-
-func assertValidationError(t *testing.T, err error, code ValidationCode, component string) {
-	t.Helper()
-	var validationErr *ValidationError
-	if !errors.As(err, &validationErr) {
-		t.Fatalf("errors.As(*ValidationError) = false for %v", err)
-	}
-	if validationErr.Code != code {
-		t.Fatalf("ValidationError.Code = %q, want %q", validationErr.Code, code)
-	}
-	if component != "" && validationErr.Component != component {
-		t.Fatalf("ValidationError.Component = %q, want %q", validationErr.Component, component)
-	}
 }

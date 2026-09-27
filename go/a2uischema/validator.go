@@ -7,6 +7,7 @@ import (
 	"maps"
 	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/a2ui-project/a2ui/go/a2ui"
 )
@@ -58,26 +59,27 @@ func NewValidator(catalog *Catalog) *Validator {
 func (v *Validator) ParseMessages(data []byte) ([]a2ui.AgentMessage, error) {
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
-		return nil, fmt.Errorf("a2uischema: empty payload")
+		return nil, invalid(ErrInvalidMessage, "", "empty payload")
 	}
 	if data[0] == '[' {
 		var msgs []a2ui.AgentMessage
 		if err := json.Unmarshal(data, &msgs); err != nil {
-			return nil, fmt.Errorf("a2uischema: parse messages: %w", err)
+			return nil, within(err, "", "parse messages")
 		}
 		return msgs, nil
 	}
 	var msg a2ui.AgentMessage
 	if err := json.Unmarshal(data, &msg); err != nil {
-		return nil, fmt.Errorf("a2uischema: parse message: %w", err)
+		return nil, within(err, "", "parse message")
 	}
 	return []a2ui.AgentMessage{msg}, nil
 }
 
 // ValidateMessages validates a batch of A2UI messages.
+// A validation failure is reported as a *[ValidationError].
 func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 	if len(msgs) == 0 {
-		return fmt.Errorf("a2uischema: no messages to validate")
+		return invalid(ErrInvalidMessage, "", "no messages to validate")
 	}
 	// Components may reference children that arrive in later messages
 	// (progressive rendering), so unknown references are only reported
@@ -86,7 +88,7 @@ func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 	pending := make(map[string][]componentRef)
 	for i, msg := range msgs {
 		if err := v.validateMessage(msg); err != nil {
-			return fmt.Errorf("a2uischema: message[%d]: %w", i, err)
+			return within(err, pointer(i), fmt.Sprintf("message[%d]", i))
 		}
 		switch {
 		case msg.CreateSurface != nil:
@@ -97,19 +99,19 @@ func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 			if len(msg.CreateSurface.Components) > 0 {
 				refs, err := v.validateComponents(msg.CreateSurface.Components, nil)
 				if err != nil {
-					return fmt.Errorf("createSurface: %w", err)
+					return within(err, pointer(i, "createSurface", "components"), fmt.Sprintf("message[%d]: createSurface", i))
 				}
 				for _, component := range msg.CreateSurface.Components {
 					known[component.ID] = true
 				}
-				pending[id] = refs
+				pending[id] = at(refs, pointer(i, "createSurface", "components"))
 			}
 		case msg.UpdateComponents != nil:
 			id := msg.UpdateComponents.SurfaceID
 			known := surfaceComponents[id]
 			refs, err := v.validateComponents(msg.UpdateComponents.Components, known)
 			if err != nil {
-				return fmt.Errorf("updateComponents: %w", err)
+				return within(err, pointer(i, "updateComponents", "components"), fmt.Sprintf("message[%d]: updateComponents", i))
 			}
 			if known == nil {
 				known = make(map[string]bool)
@@ -118,20 +120,21 @@ func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 			for _, component := range msg.UpdateComponents.Components {
 				known[component.ID] = true
 			}
+			refs = at(refs, pointer(i, "updateComponents", "components"))
 			pending[id] = slices.DeleteFunc(append(pending[id], refs...), func(r componentRef) bool { return known[r.to] })
 		case msg.DeleteSurface != nil:
 			delete(surfaceComponents, msg.DeleteSurface.SurfaceID)
 			delete(pending, msg.DeleteSurface.SurfaceID)
 		case msg.UpdateDataModel != nil:
 			if err := validatePath(msg.UpdateDataModel.Path, true); err != nil {
-				return fmt.Errorf("updateDataModel.path: %w", err)
+				return within(err, pointer(i, "updateDataModel", "path"), fmt.Sprintf("message[%d]: updateDataModel.path", i))
 			}
 		}
 	}
 	for _, id := range slices.Sorted(maps.Keys(pending)) {
 		if refs := pending[id]; len(refs) > 0 {
 			r := refs[0]
-			return fmt.Errorf("a2uischema: surface %q: %w", id, validationError(ValidationUnknownComponentRef, "", r.from, r.to, "", fmt.Sprintf("component %q references unknown component %q", r.from, r.to)))
+			return invalid(ErrInvalidTree, r.path, fmt.Sprintf("surface %q: component %q references unknown component %q", id, r.from, r.to))
 		}
 	}
 	return nil
@@ -140,59 +143,68 @@ func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 // A componentRef is a reference from one component to another.
 type componentRef struct {
 	from, to string
+	path     string // JSON pointer of the reference
+}
+
+// at returns refs with path prefixed to their paths.
+func at(refs []componentRef, path string) []componentRef {
+	for i := range refs {
+		refs[i].path = path + refs[i].path
+	}
+	return refs
 }
 
 func (v *Validator) validateMessage(msg a2ui.AgentMessage) error {
 	if msg.Version != a2ui.Version {
-		return fmt.Errorf("version = %q, want %q", msg.Version, a2ui.Version)
+		return invalid(ErrVersionMismatch, "/version", fmt.Sprintf("version = %q, want %q", msg.Version, a2ui.Version))
 	}
 	switch countSet(msg.CreateSurface != nil, msg.UpdateComponents != nil, msg.UpdateDataModel != nil, msg.DeleteSurface != nil, msg.CallRendererFunction != nil, msg.AgentFunctionResponse != nil) {
 	case 1:
 	case 0:
-		return fmt.Errorf("message has no payload")
+		return invalid(ErrInvalidMessage, "", "message has no payload")
 	default:
-		return fmt.Errorf("message has multiple payloads")
+		return invalid(ErrInvalidMessage, "", "message has multiple payloads")
 	}
 	switch {
 	case msg.CreateSurface != nil:
 		if msg.CreateSurface.SurfaceID == "" {
-			return fmt.Errorf("createSurface.surfaceId is required")
+			return invalid(ErrInvalidMessage, "/createSurface/surfaceId", "createSurface.surfaceId is required")
 		}
 		if msg.CreateSurface.CatalogID != "" && v.catalog != nil {
 			id, err := v.catalog.ID()
 			if err == nil && len(v.allowedComponents) > 0 && msg.CreateSurface.CatalogID != id {
-				return fmt.Errorf("createSurface.catalogId = %q, want %q", msg.CreateSurface.CatalogID, id)
+				return invalid(ErrInvalidMessage, "/createSurface/catalogId", fmt.Sprintf("createSurface.catalogId = %q, want %q", msg.CreateSurface.CatalogID, id))
 			}
 		}
 	case msg.UpdateComponents != nil:
 		if msg.UpdateComponents.SurfaceID == "" {
-			return fmt.Errorf("updateComponents.surfaceId is required")
+			return invalid(ErrInvalidMessage, "/updateComponents/surfaceId", "updateComponents.surfaceId is required")
 		}
 		if len(msg.UpdateComponents.Components) == 0 {
-			return fmt.Errorf("updateComponents.components must not be empty")
+			return invalid(ErrInvalidMessage, "/updateComponents/components", "updateComponents.components must not be empty")
 		}
 	case msg.UpdateDataModel != nil:
 		if msg.UpdateDataModel.SurfaceID == "" {
-			return fmt.Errorf("updateDataModel.surfaceId is required")
+			return invalid(ErrInvalidMessage, "/updateDataModel/surfaceId", "updateDataModel.surfaceId is required")
 		}
 	case msg.DeleteSurface != nil:
 		if msg.DeleteSurface.SurfaceID == "" {
-			return fmt.Errorf("deleteSurface.surfaceId is required")
+			return invalid(ErrInvalidMessage, "/deleteSurface/surfaceId", "deleteSurface.surfaceId is required")
 		}
 	case msg.CallRendererFunction != nil:
 		call := msg.CallRendererFunction
 		if call.FunctionCallID == "" {
-			return fmt.Errorf("callRendererFunction.functionCallId is required")
+			return invalid(ErrInvalidMessage, "/callRendererFunction/functionCallId", "callRendererFunction.functionCallId is required")
 		}
 		if call.CallFunction.CatalogID == "" {
-			return fmt.Errorf("callRendererFunction.callFunction.catalogId is required")
+			return invalid(ErrInvalidMessage, "/callRendererFunction/callFunction/catalogId", "callRendererFunction.callFunction.catalogId is required")
 		}
 		if err := v.validateFunctionCall(call.CallFunction, 0); err != nil {
-			return fmt.Errorf("callRendererFunction.callFunction: %w", err)
+			return within(err, "/callRendererFunction/callFunction", "callRendererFunction.callFunction")
 		}
 	case msg.AgentFunctionResponse != nil:
 		if err := validateFunctionResponse(*msg.AgentFunctionResponse); err != nil {
-			return fmt.Errorf("agentFunctionResponse: %w", err)
+			return within(err, "/agentFunctionResponse", "agentFunctionResponse")
 		}
 	}
 	return nil
@@ -200,84 +212,85 @@ func (v *Validator) validateMessage(msg a2ui.AgentMessage) error {
 
 // validateComponents validates components and returns the references
 // to components that are neither in components nor in known.
+// Error and reference paths are relative to the components array.
 func (v *Validator) validateComponents(components []a2ui.Component, known map[string]bool) ([]componentRef, error) {
 	ids := make(map[string]int, len(components))
 	for i, component := range components {
 		if err := v.validateComponent(component); err != nil {
-			return nil, fmt.Errorf("component[%d] (%s): %w", i, component.ID, err)
+			return nil, within(err, pointer(i), fmt.Sprintf("component[%d] (%s)", i, component.ID))
 		}
 		if _, ok := ids[component.ID]; ok {
-			return nil, validationError(ValidationDuplicateComponent, "", component.ID, "", "", fmt.Sprintf("duplicate component id %q", component.ID))
+			return nil, invalid(ErrInvalidTree, pointer(i, "id"), fmt.Sprintf("duplicate component id %q", component.ID))
 		}
 		ids[component.ID] = i
 	}
 	var unknown []componentRef
 	graph := make(map[string][]string, len(components))
-	for _, component := range components {
-		refs, err := componentRefs(component)
-		if err != nil {
-			return nil, fmt.Errorf("component %q: %w", component.ID, err)
-		}
+	for i, component := range components {
 		graph[component.ID] = nil
-		for _, ref := range refs {
-			if _, ok := ids[ref]; ok {
-				graph[component.ID] = append(graph[component.ID], ref)
+		for _, ref := range componentRefs(component) {
+			if _, ok := ids[ref.to]; ok {
+				graph[component.ID] = append(graph[component.ID], ref.to)
 				continue
 			}
-			if known != nil && known[ref] {
+			if known != nil && known[ref.to] {
 				continue
 			}
-			unknown = append(unknown, componentRef{component.ID, ref})
+			ref.from = component.ID
+			ref.path = pointer(i) + ref.path
+			unknown = append(unknown, ref)
 		}
 	}
 	if _, ok := ids["root"]; !ok && len(known) == 0 {
-		return nil, validationError(ValidationMissingRootComponent, "", "root", "", "", fmt.Sprintf("components must include id %q", "root"))
+		return nil, invalid(ErrInvalidTree, "", fmt.Sprintf("components must include id %q", "root"))
 	}
 	if _, ok := ids["root"]; ok {
-		if err := validateTopology(graph, "root"); err != nil {
+		if err := validateTopology(graph, "root", ids); err != nil {
 			return nil, err
 		}
 	}
 	return unknown, nil
 }
 
+// validateComponent validates a component. Error paths are relative
+// to the component.
 func (v *Validator) validateComponent(component a2ui.Component) error {
 	if component.ID == "" {
-		return fmt.Errorf("id is required")
+		return invalid(ErrInvalidMessage, "/id", "id is required")
 	}
 	componentType := component.ComponentType()
 	if componentType == "" {
-		return fmt.Errorf("exactly one concrete component type must be set")
+		return invalid(ErrInvalidMessage, "/component", "exactly one concrete component type must be set")
 	}
 	if len(v.allowedComponents) > 0 {
 		if _, ok := v.allowedComponents[componentType]; !ok {
-			return validationError(ValidationUnknownComponentType, "", component.ID, "", "", fmt.Sprintf("component type %q is not allowed by the selected catalog", componentType))
+			return invalid(ErrUnknownComponent, "/component", fmt.Sprintf("component type %q is not allowed by the selected catalog", componentType))
 		}
 	}
-	for _, check := range component.Checks {
+	for i, check := range component.Checks {
 		if err := v.validateDynamicValidationResult(check.Condition, 0); err != nil {
-			return fmt.Errorf("check condition: %w", err)
+			return within(err, pointer("checks", i, "condition"), "check condition")
 		}
 	}
-	if component.Accessibility != nil {
-		if component.Accessibility.Label != nil {
-			if err := v.validateDynamicString(*component.Accessibility.Label, 0); err != nil {
-				return fmt.Errorf("accessibility.label: %w", err)
+	if a := component.Accessibility; a != nil {
+		if a.Label != nil {
+			if err := v.validateDynamicString(*a.Label, 0); err != nil {
+				return within(err, "/accessibility/label", "accessibility.label")
 			}
 		}
-		if component.Accessibility.Description != nil {
-			if err := v.validateDynamicString(*component.Accessibility.Description, 0); err != nil {
-				return fmt.Errorf("accessibility.description: %w", err)
+		if a.Description != nil {
+			if err := v.validateDynamicString(*a.Description, 0); err != nil {
+				return within(err, "/accessibility/description", "accessibility.description")
 			}
 		}
-		switch component.Accessibility.Live {
+		switch a.Live {
 		case "", a2ui.AccessibleLiveOff, a2ui.AccessibleLivePolite, a2ui.AccessibleLiveAssertive:
 		default:
-			return fmt.Errorf("accessibility.live = %q is not allowed", component.Accessibility.Live)
+			return invalid(ErrInvalidMessage, "/accessibility/live", fmt.Sprintf("accessibility.live = %q is not allowed", a.Live))
 		}
-		if component.Accessibility.Hidden != nil {
-			if err := v.validateDynamicBoolean(*component.Accessibility.Hidden, 0); err != nil {
-				return fmt.Errorf("accessibility.hidden: %w", err)
+		if a.Hidden != nil {
+			if err := v.validateDynamicBoolean(*a.Hidden, 0); err != nil {
+				return within(err, "/accessibility/hidden", "accessibility.hidden")
 			}
 		}
 	}
@@ -300,95 +313,105 @@ func (v *Validator) validateComponent(component a2ui.Component) error {
 		return v.validateContainerChildren(component.List.Children)
 	case component.Card != nil:
 		if component.Card.Child == "" {
-			return fmt.Errorf("card.child is required")
+			return invalid(ErrInvalidMessage, "/child", "card.child is required")
 		}
 	case component.Tabs != nil:
 		if len(component.Tabs.Tabs) == 0 {
-			return fmt.Errorf("tabs.tabs must not be empty")
+			return invalid(ErrInvalidMessage, "/tabs", "tabs.tabs must not be empty")
 		}
-		for _, tab := range component.Tabs.Tabs {
+		for i, tab := range component.Tabs.Tabs {
 			if tab.Child == "" {
-				return fmt.Errorf("tabs.child is required")
+				return invalid(ErrInvalidMessage, pointer("tabs", i, "child"), "tabs.child is required")
 			}
 			if err := v.validateDynamicString(tab.Title, 0); err != nil {
-				return fmt.Errorf("tabs.title: %w", err)
+				return within(err, pointer("tabs", i, "title"), "tabs.title")
 			}
 		}
 	case component.Modal != nil:
 		if component.Modal.Content == "" || component.Modal.Trigger == "" {
-			return fmt.Errorf("modal.content and modal.trigger are required")
+			path := "/content"
+			if component.Modal.Trigger == "" {
+				path = "/trigger"
+			}
+			return invalid(ErrInvalidMessage, path, "modal.content and modal.trigger are required")
 		}
 	case component.Divider != nil:
 		return nil
 	case component.Button != nil:
 		if component.Button.Child == "" {
-			return fmt.Errorf("button.child is required")
+			return invalid(ErrInvalidMessage, "/child", "button.child is required")
 		}
 		if err := v.validateAction(component.Button.Action, 0); err != nil {
-			return fmt.Errorf("button.action: %w", err)
+			return within(err, "/action", "button.action")
 		}
 	case component.TextField != nil:
-		if err := v.validateDynamicString(component.TextField.Label, 0); err != nil {
-			return fmt.Errorf("textField.label: %w", err)
+		c := component.TextField
+		if err := v.validateDynamicString(c.Label, 0); err != nil {
+			return within(err, "/label", "textField.label")
 		}
-		if component.TextField.Value != nil {
-			if err := v.validateDynamicString(*component.TextField.Value, 0); err != nil {
-				return fmt.Errorf("textField.value: %w", err)
+		if c.Value != nil {
+			if err := v.validateDynamicString(*c.Value, 0); err != nil {
+				return within(err, "/value", "textField.value")
 			}
 		}
-		if component.TextField.Placeholder != nil {
-			if err := v.validateDynamicString(*component.TextField.Placeholder, 0); err != nil {
-				return fmt.Errorf("textField.placeholder: %w", err)
+		if c.Placeholder != nil {
+			if err := v.validateDynamicString(*c.Placeholder, 0); err != nil {
+				return within(err, "/placeholder", "textField.placeholder")
 			}
 		}
 	case component.CheckBox != nil:
 		if err := v.validateDynamicString(component.CheckBox.Label, 0); err != nil {
-			return fmt.Errorf("checkBox.label: %w", err)
+			return within(err, "/label", "checkBox.label")
 		}
 		if err := v.validateDynamicBoolean(component.CheckBox.Value, 0); err != nil {
-			return fmt.Errorf("checkBox.value: %w", err)
+			return within(err, "/value", "checkBox.value")
 		}
 	case component.ChoicePicker != nil:
-		if len(component.ChoicePicker.Options) == 0 {
-			return fmt.Errorf("choicePicker.options must not be empty")
+		c := component.ChoicePicker
+		if len(c.Options) == 0 {
+			return invalid(ErrInvalidMessage, "/options", "choicePicker.options must not be empty")
 		}
-		if component.ChoicePicker.Label != nil {
-			if err := v.validateDynamicString(*component.ChoicePicker.Label, 0); err != nil {
-				return fmt.Errorf("choicePicker.label: %w", err)
+		if c.Label != nil {
+			if err := v.validateDynamicString(*c.Label, 0); err != nil {
+				return within(err, "/label", "choicePicker.label")
 			}
 		}
-		for _, option := range component.ChoicePicker.Options {
+		for i, option := range c.Options {
 			if option.Value == "" {
-				return fmt.Errorf("choicePicker option value is required")
+				return invalid(ErrInvalidMessage, pointer("options", i, "value"), "choicePicker option value is required")
 			}
 			if err := v.validateDynamicString(option.Label, 0); err != nil {
-				return fmt.Errorf("choicePicker option label: %w", err)
+				return within(err, pointer("options", i, "label"), "choicePicker option label")
 			}
 		}
-		if err := v.validateDynamicStringList(component.ChoicePicker.Value, 0); err != nil {
-			return fmt.Errorf("choicePicker.value: %w", err)
+		if err := v.validateDynamicStringList(c.Value, 0); err != nil {
+			return within(err, "/value", "choicePicker.value")
 		}
 	case component.Slider != nil:
 		if err := v.validateDynamicNumber(component.Slider.Value, 0); err != nil {
-			return fmt.Errorf("slider.value: %w", err)
+			return within(err, "/value", "slider.value")
 		}
 		if component.Slider.Label != nil {
 			if err := v.validateDynamicString(*component.Slider.Label, 0); err != nil {
-				return fmt.Errorf("slider.label: %w", err)
+				return within(err, "/label", "slider.label")
 			}
 		}
 	case component.DateTimeInput != nil:
-		if err := v.validateDynamicString(component.DateTimeInput.Value, 0); err != nil {
-			return fmt.Errorf("dateTimeInput.value: %w", err)
+		c := component.DateTimeInput
+		if err := v.validateDynamicString(c.Value, 0); err != nil {
+			return within(err, "/value", "dateTimeInput.value")
 		}
-		for name, value := range map[string]*a2ui.DynamicString{
-			"label": component.DateTimeInput.Label,
-			"max":   component.DateTimeInput.Max,
-			"min":   component.DateTimeInput.Min,
+		for _, f := range []struct {
+			name  string
+			value *a2ui.DynamicString
+		}{
+			{"label", c.Label},
+			{"max", c.Max},
+			{"min", c.Min},
 		} {
-			if value != nil {
-				if err := v.validateDynamicString(*value, 0); err != nil {
-					return fmt.Errorf("dateTimeInput.%s: %w", name, err)
+			if f.value != nil {
+				if err := v.validateDynamicString(*f.value, 0); err != nil {
+					return within(err, pointer(f.name), "dateTimeInput."+f.name)
 				}
 			}
 		}
@@ -397,17 +420,15 @@ func (v *Validator) validateComponent(component a2ui.Component) error {
 }
 
 func (v *Validator) validateTextComponent(component a2ui.TextComponent) error {
-	return v.validateDynamicString(component.Text, 0)
+	return within(v.validateDynamicString(component.Text, 0), "/text", "")
 }
 
 func (v *Validator) validateImageComponent(component a2ui.ImageComponent) error {
 	if err := v.validateDynamicString(component.URL, 0); err != nil {
-		return err
+		return within(err, "/url", "")
 	}
 	if component.Description != nil {
-		if err := v.validateDynamicString(*component.Description, 0); err != nil {
-			return err
-		}
+		return within(v.validateDynamicString(*component.Description, 0), "/description", "")
 	}
 	return nil
 }
@@ -416,43 +437,43 @@ func (v *Validator) validateIconComponent(component a2ui.IconComponent) error {
 	name := component.Name
 	switch {
 	case name.SVGPath != nil:
-		return v.validateDynamicString(*name.SVGPath, 0)
+		return within(v.validateDynamicString(*name.SVGPath, 0), "/name/path", "")
 	case name.Name == nil && name.Binding == nil:
-		return fmt.Errorf("icon.name is required")
+		return invalid(ErrInvalidMessage, "/name", "icon.name is required")
 	}
 	return nil
 }
 
 func (v *Validator) validateVideoComponent(component a2ui.VideoComponent) error {
 	if err := v.validateDynamicString(component.URL, 0); err != nil {
-		return err
+		return within(err, "/url", "")
 	}
 	if component.PosterURL != nil {
-		return v.validateDynamicString(*component.PosterURL, 0)
+		return within(v.validateDynamicString(*component.PosterURL, 0), "/posterUrl", "")
 	}
 	return nil
 }
 
 func (v *Validator) validateAudioPlayerComponent(component a2ui.AudioPlayerComponent) error {
 	if err := v.validateDynamicString(component.URL, 0); err != nil {
-		return err
+		return within(err, "/url", "")
 	}
 	if component.Description != nil {
-		return v.validateDynamicString(*component.Description, 0)
+		return within(v.validateDynamicString(*component.Description, 0), "/description", "")
 	}
 	return nil
 }
 
 func (v *Validator) validateContainerChildren(children a2ui.ChildList) error {
 	if len(children.IDs) == 0 && children.Template == nil {
-		return fmt.Errorf("children must not be empty")
+		return invalid(ErrInvalidMessage, "/children", "children must not be empty")
 	}
 	if children.Template != nil {
 		if children.Template.ComponentID == "" {
-			return fmt.Errorf("children.template.componentId is required")
+			return invalid(ErrInvalidMessage, "/children/componentId", "children.template.componentId is required")
 		}
 		if err := validatePath(children.Template.Path, false); err != nil {
-			return fmt.Errorf("children.template.path: %w", err)
+			return within(err, "/children/path", "children.template.path")
 		}
 	}
 	return nil
@@ -461,27 +482,25 @@ func (v *Validator) validateContainerChildren(children a2ui.ChildList) error {
 func (v *Validator) validateAction(action a2ui.Action, depth int) error {
 	switch {
 	case action.Event != nil && action.FunctionCall != nil:
-		return fmt.Errorf("action must not have both event and functionCall")
+		return invalid(ErrInvalidMessage, "", "action must not have both event and functionCall")
 	case action.Event != nil:
 		if action.Event.Name == "" {
-			return fmt.Errorf("event.name is required")
+			return invalid(ErrInvalidMessage, "/event/name", "event.name is required")
 		}
 		if action.Event.UserMessage != nil {
 			if err := v.validateDynamicString(*action.Event.UserMessage, depth+1); err != nil {
-				return fmt.Errorf("event.userMessage: %w", err)
+				return within(err, "/event/userMessage", "event.userMessage")
 			}
 		}
-		for key, value := range action.Event.Context {
-			if err := v.validateDynamicValue(value, depth+1); err != nil {
-				return fmt.Errorf("event.context[%q]: %w", key, err)
+		for _, key := range slices.Sorted(maps.Keys(action.Event.Context)) {
+			if err := v.validateDynamicValue(action.Event.Context[key], depth+1); err != nil {
+				return within(err, pointer("event", "context", key), fmt.Sprintf("event.context[%q]", key))
 			}
 		}
 	case action.FunctionCall != nil:
-		if err := v.validateFunctionCall(*action.FunctionCall, depth+1); err != nil {
-			return err
-		}
+		return within(v.validateFunctionCall(*action.FunctionCall, depth+1), "/functionCall", "")
 	default:
-		return fmt.Errorf("action must have event or functionCall")
+		return invalid(ErrInvalidMessage, "", "action must have event or functionCall")
 	}
 	return nil
 }
@@ -491,11 +510,11 @@ func (v *Validator) validateDynamicString(value a2ui.DynamicString, depth int) e
 	case value.Literal != nil:
 		return nil
 	case value.Binding != nil:
-		return validatePath(value.Binding.Path, false)
+		return within(validatePath(value.Binding.Path, false), "/path", "")
 	case value.FunctionCall != nil:
 		return v.validateFunctionCall(*value.FunctionCall, depth+1)
 	default:
-		return fmt.Errorf("dynamic string has no value")
+		return invalid(ErrInvalidMessage, "", "dynamic string has no value")
 	}
 }
 
@@ -504,11 +523,11 @@ func (v *Validator) validateDynamicNumber(value a2ui.DynamicNumber, depth int) e
 	case value.Literal != nil:
 		return nil
 	case value.Binding != nil:
-		return validatePath(value.Binding.Path, false)
+		return within(validatePath(value.Binding.Path, false), "/path", "")
 	case value.FunctionCall != nil:
 		return v.validateFunctionCall(*value.FunctionCall, depth+1)
 	default:
-		return fmt.Errorf("dynamic number has no value")
+		return invalid(ErrInvalidMessage, "", "dynamic number has no value")
 	}
 }
 
@@ -517,11 +536,11 @@ func (v *Validator) validateDynamicBoolean(value a2ui.DynamicBoolean, depth int)
 	case value.Literal != nil:
 		return nil
 	case value.Binding != nil:
-		return validatePath(value.Binding.Path, false)
+		return within(validatePath(value.Binding.Path, false), "/path", "")
 	case value.FunctionCall != nil:
 		return v.validateFunctionCall(*value.FunctionCall, depth+1)
 	default:
-		return fmt.Errorf("dynamic boolean has no value")
+		return invalid(ErrInvalidMessage, "", "dynamic boolean has no value")
 	}
 }
 
@@ -530,11 +549,11 @@ func (v *Validator) validateDynamicStringList(value a2ui.DynamicStringList, dept
 	case value.Literal != nil:
 		return nil
 	case value.Binding != nil:
-		return validatePath(value.Binding.Path, false)
+		return within(validatePath(value.Binding.Path, false), "/path", "")
 	case value.FunctionCall != nil:
 		return v.validateFunctionCall(*value.FunctionCall, depth+1)
 	default:
-		return fmt.Errorf("dynamic string list has no value")
+		return invalid(ErrInvalidMessage, "", "dynamic string list has no value")
 	}
 }
 
@@ -543,24 +562,24 @@ func (v *Validator) validateDynamicValue(value a2ui.DynamicValue, depth int) err
 	case value.String != nil, value.Number != nil, value.Bool != nil, value.Array != nil:
 		return nil
 	case value.Binding != nil:
-		return validatePath(value.Binding.Path, false)
+		return within(validatePath(value.Binding.Path, false), "/path", "")
 	case value.FunctionCall != nil:
 		return v.validateFunctionCall(*value.FunctionCall, depth+1)
 	default:
-		return fmt.Errorf("dynamic value has no value")
+		return invalid(ErrInvalidMessage, "", "dynamic value has no value")
 	}
 }
 
 func (v *Validator) validateDynamicValidationResult(value a2ui.DynamicValidationResult, depth int) error {
 	switch {
 	case value.Binding != nil && value.FunctionCall != nil:
-		return fmt.Errorf("condition must not have both path and call")
+		return invalid(ErrInvalidMessage, "", "condition must not have both path and call")
 	case value.Binding != nil:
-		return validatePath(value.Binding.Path, false)
+		return within(validatePath(value.Binding.Path, false), "/path", "")
 	case value.FunctionCall != nil:
 		return v.validateFunctionCall(*value.FunctionCall, depth+1)
 	default:
-		return fmt.Errorf("condition has no value")
+		return invalid(ErrInvalidMessage, "", "condition has no value")
 	}
 }
 
@@ -569,19 +588,19 @@ const indexFunction = "@index"
 
 func (v *Validator) validateFunctionCall(call a2ui.FunctionCall, depth int) error {
 	if depth > 32 {
-		return fmt.Errorf("function call recursion depth exceeded")
+		return invalid(ErrInvalidMessage, "", "function call recursion depth exceeded")
 	}
 	if call.Call == "" {
-		return fmt.Errorf("function call name is required")
+		return invalid(ErrInvalidMessage, "/call", "function call name is required")
 	}
 	if len(v.allowedFunctions) > 0 && call.Call != indexFunction {
 		if _, ok := v.allowedFunctions[call.Call]; !ok {
-			return validationError(ValidationUnknownFunction, "", "", "", call.Call, fmt.Sprintf("unknown function %q", call.Call))
+			return invalid(ErrUnknownFunction, "/call", fmt.Sprintf("unknown function %q", call.Call))
 		}
 	}
-	for key, arg := range call.Args {
-		if err := v.validateFunctionArg(arg, depth+1); err != nil {
-			return fmt.Errorf("function arg %q: %w", key, err)
+	for _, key := range slices.Sorted(maps.Keys(call.Args)) {
+		if err := v.validateFunctionArg(call.Args[key], depth+1); err != nil {
+			return within(err, pointer("args", key), fmt.Sprintf("function arg %q", key))
 		}
 	}
 	return nil
@@ -596,34 +615,29 @@ func (v *Validator) validateFunctionArg(arg any, depth int) error {
 	case []any:
 		for i, item := range value {
 			if err := v.validateFunctionArg(item, depth+1); err != nil {
-				return fmt.Errorf("[%d]: %w", i, err)
+				return within(err, pointer(i), fmt.Sprintf("[%d]", i))
 			}
 		}
 		return nil
 	case map[string]any:
 		if _, ok := value["path"]; ok {
 			path, _ := value["path"].(string)
-			return validatePath(path, false)
+			return within(validatePath(path, false), "/path", "")
 		}
 		if _, ok := value["call"]; ok {
 			data, err := json.Marshal(value)
 			if err != nil {
-				return err
+				return within(err, "", "")
 			}
 			var call a2ui.FunctionCall
 			if err := json.Unmarshal(data, &call); err != nil {
-				return err
+				return within(err, "", "")
 			}
 			return v.validateFunctionCall(call, depth+1)
 		}
-		keys := make([]string, 0, len(value))
-		for key := range value {
-			keys = append(keys, key)
-		}
-		slices.Sort(keys)
-		for _, key := range keys {
+		for _, key := range slices.Sorted(maps.Keys(value)) {
 			if err := v.validateFunctionArg(value[key], depth+1); err != nil {
-				return fmt.Errorf("%s: %w", key, err)
+				return within(err, pointer(key), key)
 			}
 		}
 		return nil
@@ -644,27 +658,29 @@ func (v *Validator) validateFunctionArg(arg any, depth int) error {
 
 func validateFunctionResponse(response a2ui.FunctionResponse) error {
 	if response.FunctionCallID == "" {
-		return fmt.Errorf("functionCallId is required")
+		return invalid(ErrInvalidMessage, "/functionCallId", "functionCallId is required")
 	}
 	switch {
 	case response.Error == nil:
 		return nil
 	case response.Value != nil:
-		return fmt.Errorf("must not have both value and error")
+		return invalid(ErrInvalidMessage, "", "must not have both value and error")
 	case response.Error.Code == "":
-		return fmt.Errorf("error.code is required")
+		return invalid(ErrInvalidMessage, "/error/code", "error.code is required")
 	case response.Error.Message == "":
-		return fmt.Errorf("error.message is required")
+		return invalid(ErrInvalidMessage, "/error/message", "error.message is required")
 	}
 	return nil
 }
 
-func componentRefs(component a2ui.Component) ([]string, error) {
+// componentRefs returns the references from component to other
+// components, with paths relative to the component.
+func componentRefs(component a2ui.Component) []componentRef {
 	switch {
 	case component.Button != nil:
-		return []string{component.Button.Child}, nil
+		return []componentRef{{to: component.Button.Child, path: "/child"}}
 	case component.Card != nil:
-		return []string{component.Card.Child}, nil
+		return []componentRef{{to: component.Card.Child, path: "/child"}}
 	case component.Column != nil:
 		return childListRefs(component.Column.Children)
 	case component.List != nil:
@@ -672,23 +688,30 @@ func componentRefs(component a2ui.Component) ([]string, error) {
 	case component.Row != nil:
 		return childListRefs(component.Row.Children)
 	case component.Modal != nil:
-		return []string{component.Modal.Trigger, component.Modal.Content}, nil
-	case component.Tabs != nil:
-		refs := make([]string, 0, len(component.Tabs.Tabs))
-		for _, tab := range component.Tabs.Tabs {
-			refs = append(refs, tab.Child)
+		return []componentRef{
+			{to: component.Modal.Trigger, path: "/trigger"},
+			{to: component.Modal.Content, path: "/content"},
 		}
-		return refs, nil
+	case component.Tabs != nil:
+		refs := make([]componentRef, 0, len(component.Tabs.Tabs))
+		for i, tab := range component.Tabs.Tabs {
+			refs = append(refs, componentRef{to: tab.Child, path: pointer("tabs", i, "child")})
+		}
+		return refs
 	default:
-		return nil, nil
+		return nil
 	}
 }
 
-func childListRefs(children a2ui.ChildList) ([]string, error) {
+func childListRefs(children a2ui.ChildList) []componentRef {
 	if children.Template != nil {
-		return []string{children.Template.ComponentID}, nil
+		return []componentRef{{to: children.Template.ComponentID, path: "/children/componentId"}}
 	}
-	return append([]string(nil), children.IDs...), nil
+	refs := make([]componentRef, 0, len(children.IDs))
+	for i, id := range children.IDs {
+		refs = append(refs, componentRef{to: id, path: pointer("children", i)})
+	}
+	return refs
 }
 
 func countSet(values ...bool) int {
@@ -701,13 +724,20 @@ func countSet(values ...bool) int {
 	return count
 }
 
-// ValidateJSON parses and validates a raw JSON payload.
+// ValidateJSON parses and validates a raw JSON payload, a single
+// message object or an array of them. A failure is reported as a
+// *[ValidationError].
 func (v *Validator) ValidateJSON(data []byte) error {
 	msgs, err := v.ParseMessages(data)
 	if err != nil {
 		return err
 	}
-	return v.ValidateMessages(msgs)
+	err = v.ValidateMessages(msgs)
+	if e, ok := err.(*ValidationError); ok && bytes.TrimSpace(data)[0] != '[' {
+		// Make the path relative to the single message.
+		e.Path = strings.TrimPrefix(e.Path, "/0")
+	}
+	return err
 }
 
 // ValidateExample validates either a raw message payload or an example file
@@ -726,13 +756,16 @@ func (v *Validator) ValidateExample(data []byte) error {
 	return v.ValidateJSON(example.Messages)
 }
 
-func validateTopology(graph map[string][]string, root string) error {
+// validateTopology checks that the components in graph form a tree
+// from root. Ids maps component ids to their index in the components
+// array, to which error paths are relative.
+func validateTopology(graph map[string][]string, root string, ids map[string]int) error {
 	seen := make(map[string]bool, len(graph))
 	stack := make(map[string]bool, len(graph))
 	var visit func(string) error
 	visit = func(node string) error {
 		if stack[node] {
-			return validationError(ValidationCycle, "", node, "", "", fmt.Sprintf("cycle detected at component %q", node))
+			return invalid(ErrInvalidTree, pointer(ids[node]), fmt.Sprintf("cycle detected at component %q", node))
 		}
 		if seen[node] {
 			return nil
@@ -751,23 +784,31 @@ func validateTopology(graph map[string][]string, root string) error {
 		return err
 	}
 	if len(seen) != len(graph) {
-		return validationError(ValidationOrphanedComponent, "", "", "", "", "orphaned components detected")
+		first := -1
+		for id, i := range ids {
+			if !seen[id] && (first < 0 || i < first) {
+				first = i
+			}
+		}
+		return invalid(ErrInvalidTree, pointer(first), "orphaned components detected")
 	}
 	return nil
 }
 
+// validatePath checks that path is a JSON Pointer or a relative JSON
+// Pointer. Error paths are relative to the path value.
 func validatePath(path string, allowEmpty bool) error {
 	if path == "" {
 		if allowEmpty {
 			return nil
 		}
-		return validationError(ValidationInvalidPath, "", "", "", "", "path is required")
+		return invalid(ErrInvalidMessage, "", "path is required")
 	}
 	if path == "/" {
 		return nil
 	}
 	if !jsonPointerPattern.MatchString(path) && !relativeJSONPointerPattern.MatchString(path) {
-		return validationError(ValidationInvalidPath, path, "", "", "", fmt.Sprintf("invalid JSON Pointer %q", path))
+		return invalid(ErrInvalidMessage, "", fmt.Sprintf("invalid JSON Pointer %q", path))
 	}
 	return nil
 }

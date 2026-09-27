@@ -1,6 +1,7 @@
 package a2uistream_test
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -57,11 +58,13 @@ func ExampleReader_Next_payload() {
 func ExampleParseAndValidate() {
 	_, err := a2uistream.ParseAndValidate(`<a2ui-json>{"version":"v0.9","deleteSurface":{"surfaceId":"old"}}</a2ui-json>`, nil)
 	fmt.Println(err)
+	fmt.Println(errors.Is(err, a2uistream.ErrInvalidPayload))
 
 	parts, err := a2uistream.ParseAndValidate(`<a2ui-json>{"version":"v1.0","deleteSurface":{"surfaceId":"old"}}</a2ui-json>`, nil)
 	fmt.Println(parts[0].Messages[0].DeleteSurface.SurfaceID, err)
 	// Output:
 	// a2uistream: message version "v0.9" is not 1.x
+	// true
 	// old <nil>
 }
 

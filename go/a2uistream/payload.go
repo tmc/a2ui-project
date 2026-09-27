@@ -42,11 +42,11 @@ func ParseResponse(s string) ([]PayloadPart, error) {
 		text := strings.TrimSpace(s[lastEnd:open])
 		raw := strings.TrimSpace(s[open+len(openTag) : close])
 		if raw == "" {
-			return nil, fmt.Errorf("a2uistream: A2UI JSON part is empty")
+			return nil, &payloadError{msg: "a2uistream: A2UI JSON part is empty"}
 		}
 		payload, err := FixPayload(raw)
 		if err != nil {
-			return nil, fmt.Errorf("a2uistream: failed to parse A2UI JSON: %w", err)
+			return nil, &payloadError{"a2uistream: failed to parse A2UI JSON: " + err.Error(), err}
 		}
 		parts = append(parts, PayloadPart{Text: text, Payload: payload})
 		lastEnd = close + len(closeTag)
@@ -61,6 +61,7 @@ func ParseResponse(s string) ([]PayloadPart, error) {
 }
 
 // FixPayload parses common LLM-produced JSON payload shapes.
+// It reports an [ErrInvalidPayload] if s is not a JSON object or array.
 //
 // It normalizes smart quotes, removes trailing commas, and wraps a single
 // object in a list. The returned slice contains one map per payload object.
@@ -74,10 +75,10 @@ func FixPayload(s string) ([]map[string]any, error) {
 	dec := json.NewDecoder(strings.NewReader(s))
 	dec.UseNumber()
 	if err := dec.Decode(&out); err != nil {
-		return nil, fmt.Errorf("a2uistream: parse payload: %w", err)
+		return nil, &payloadError{"a2uistream: parse payload: " + err.Error(), err}
 	}
 	if strings.TrimSpace(s) == "" {
-		return nil, fmt.Errorf("a2uistream: empty payload")
+		return nil, &payloadError{msg: "a2uistream: empty payload"}
 	}
 	return out, nil
 }

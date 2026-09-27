@@ -12,8 +12,9 @@ type MessageValidator interface {
 }
 
 // ParseAndValidate parses a complete response and validates each discovered
-// batch of 1.x messages. It reports an error for A2UI messages of any other
-// version, or 1.x messages that do not decode, rather than skipping them.
+// batch of 1.x messages. It reports an [ErrInvalidPayload] for A2UI messages
+// of any other version, or 1.x messages that do not decode, rather than
+// skipping them, and returns the validator's errors unchanged.
 // A nil validator only checks versions and decoding.
 func ParseAndValidate(content string, validator MessageValidator) ([]ResponsePart, error) {
 	parts, err := parseAll(content)
@@ -23,11 +24,11 @@ func ParseAndValidate(content string, validator MessageValidator) ([]ResponsePar
 	for _, part := range parts {
 		for _, payload := range part.Payload {
 			if version := payloadVersion(payload); !isV1(version) {
-				return nil, fmt.Errorf("a2uistream: message version %q is not 1.x", version)
+				return nil, &payloadError{msg: fmt.Sprintf("a2uistream: message version %q is not 1.x", version)}
 			}
 		}
 		if len(part.Messages) != len(part.Payload) {
-			return nil, fmt.Errorf("a2uistream: invalid 1.x message")
+			return nil, &payloadError{msg: "a2uistream: invalid 1.x message"}
 		}
 		if validator != nil && len(part.Messages) > 0 {
 			if err := validator.ValidateMessages(part.Messages); err != nil {

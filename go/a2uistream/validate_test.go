@@ -1,7 +1,9 @@
 package a2uistream
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
 	"testing"
 
 	"github.com/a2ui-project/a2ui/go/a2ui"
@@ -31,9 +33,10 @@ func TestParseAndValidate(t *testing.T) {
 		t.Fatalf("validated = %+v", r.batches)
 	}
 
-	r = recordingValidator{err: errors.New("invalid")}
-	if _, err := ParseAndValidate(v1Content, &r); err == nil {
-		t.Fatal("validator error not returned")
+	errInvalid := errors.New("invalid")
+	r = recordingValidator{err: errInvalid}
+	if _, err := ParseAndValidate(v1Content, &r); !errors.Is(err, errInvalid) {
+		t.Fatalf("ParseAndValidate() = %v, want validator error", err)
 	}
 }
 
@@ -46,12 +49,25 @@ func TestParseAndValidateRejectsOtherVersions(t *testing.T) {
 		// Decodes as a payload but is not a valid 1.x message.
 		`<a2ui-json>{"version":"v1.0","deleteSurface":{"surfaceId":"s1"},"updateDataModel":{"surfaceId":"s1"}}</a2ui-json>`,
 	} {
-		if _, err := ParseAndValidate(content, &r); err == nil {
-			t.Errorf("ParseAndValidate(%s): no error", content)
+		if _, err := ParseAndValidate(content, &r); !errors.Is(err, ErrInvalidPayload) {
+			t.Errorf("ParseAndValidate(%s) = %v, want ErrInvalidPayload", content, err)
 		}
 	}
 	if len(r.batches) != 0 {
 		t.Fatalf("validator called for rejected content: %+v", r.batches)
+	}
+}
+
+func TestFixPayloadInvalid(t *testing.T) {
+	for _, s := range []string{"", "{", "not json"} {
+		if _, err := FixPayload(s); !errors.Is(err, ErrInvalidPayload) {
+			t.Errorf("FixPayload(%q) = %v, want ErrInvalidPayload", s, err)
+		}
+	}
+	_, err := FixPayload("{")
+	var syntaxErr *json.SyntaxError
+	if !errors.As(err, &syntaxErr) && !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Errorf("FixPayload(%q) = %v, want the JSON error wrapped", "{", err)
 	}
 }
 

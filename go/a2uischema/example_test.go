@@ -1,6 +1,7 @@
 package a2uischema_test
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -66,4 +67,42 @@ func ExampleValidator_ValidateMessages() {
 	// Output:
 	// <nil>
 	// a2uischema: message[0]: deleteSurface.surfaceId is required
+}
+
+func ExampleValidationError() {
+	catalog, err := newManager().SelectedCatalog(nil, nil, nil)
+	if err != nil {
+		panic(err)
+	}
+	err = catalog.Validator().ValidateJSON([]byte(`[
+		{"version": "v1.0", "createSurface": {"surfaceId": "s1"}},
+		{"version": "v1.0", "updateComponents": {"surfaceId": "s1", "components": [
+			{"id": "root", "component": "Card"}
+		]}}
+	]`))
+	var ve *a2uischema.ValidationError
+	if errors.As(err, &ve) {
+		fmt.Println(ve.Path)
+		fmt.Println(ve.Err)
+		fmt.Println(ve)
+	}
+	// Output:
+	// /1/updateComponents/components/0/child
+	// a2uischema: invalid message
+	// a2uischema: message[1]: updateComponents: component[0] (root): card.child is required
+}
+
+func ExampleErrInvalidTree() {
+	catalog, err := newManager().SelectedCatalog(nil, nil, nil)
+	if err != nil {
+		panic(err)
+	}
+	err = catalog.Validator().ValidateJSON([]byte(`{"version": "v1.0", "updateComponents": {"surfaceId": "s1", "components": [
+		{"id": "root", "component": "Card", "child": "body"}
+	]}}`))
+	fmt.Println(errors.Is(err, a2uischema.ErrInvalidTree))
+	fmt.Println(err)
+	// Output:
+	// true
+	// a2uischema: surface "s1": component "root" references unknown component "body"
 }
