@@ -4,91 +4,154 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
+	"strings"
 
 	"github.com/a2ui-project/a2ui/go/a2ui"
 )
 
-// checkFields reports a field of the JSON payload data that decoding it
-// as msgs dropped, such as a misspelled field or one that A2UI 1.x
-// removed, like the returnType of a function call. The root package
-// decodes leniently, as encoding/json does, and the schemas forbid such
-// fields, so the validator rejects them.
+var (
+	componentType        = reflect.TypeFor[a2ui.Component]()
+	customComponentType  = reflect.TypeFor[a2ui.CustomComponent]()
+	functionResponseType = reflect.TypeFor[a2ui.FunctionResponse]()
+	iconNameOrPathType   = reflect.TypeFor[a2ui.IconNameOrPath]()
+	rawMessageType       = reflect.TypeFor[json.RawMessage]()
+)
+
+// checkFields reports a field of the JSON payload data that msgs, the
+// messages decoded from it, do not define, such as a misspelled field
+// or one that A2UI 1.x removed, like the returnType of a function call.
+// The a2ui package decodes leniently, as encoding/json does, and the
+// schemas forbid such fields, so the validator rejects them.
 //
-// A dropped field whose value is null, false, 0, "", [] or {} is not
-// reported, since it may have been dropped only for being empty.
+// The fields defined at each position are those of the Go type decoded
+// there: the JSON names of a struct's fields, the fields of the set
+// variant of a union type such as [a2ui.DynamicString], and for a
+// component, its common fields, "component" and the fields of its
+// type. Values of type any, such as a data model, and the properties
+// of a custom component may hold any fields.
 func checkFields(data []byte, msgs []a2ui.AgentMessage) error {
 	var raw any
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return within(err, "", "parse messages")
 	}
-	encoded, err := json.Marshal(msgs)
-	if err != nil {
-		return within(err, "", "encode messages")
-	}
-	var decoded any
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
-		return within(err, "", "encode messages")
-	}
+	v := reflect.ValueOf(msgs)
 	if _, ok := raw.([]any); !ok {
-		decoded = decoded.([]any)[0]
+		v = v.Index(0)
 	}
-	return droppedField(raw, decoded, "")
+	return unknownField(raw, v, "")
 }
 
-// droppedField reports a field of the JSON value raw that is missing
-// from decoded, the value re-encoded after decoding. Path is the JSON
-// pointer of raw. Values of different shapes, such as a string literal
-// and a union type's object form, are not compared.
-func droppedField(raw, decoded any, path string) error {
-	switch raw := raw.(type) {
-	case map[string]any:
-		decoded, ok := decoded.(map[string]any)
+// unknownField reports a field of the JSON value raw that v, the value
+// decoded from it, does not define. Path is the JSON pointer of raw.
+func unknownField(raw any, v reflect.Value, path string) error {
+	for v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			return nil
+		}
+		v = v.Elem()
+	}
+	switch v.Kind() {
+	case reflect.Map:
+		obj, ok := raw.(map[string]any)
+		if !ok || v.Type().Key().Kind() != reflect.String {
+			return nil
+		}
+		for _, key := range slices.Sorted(maps.Keys(obj)) {
+			elem := v.MapIndex(reflect.ValueOf(key).Convert(v.Type().Key()))
+			if !elem.IsValid() {
+				continue
+			}
+			if err := unknownField(obj[key], elem, path+pointer(key)); err != nil {
+				return err
+			}
+		}
+	case reflect.Slice:
+		list, ok := raw.([]any)
+		if !ok || v.Type() == rawMessageType || len(list) != v.Len() {
+			return nil
+		}
+		for i := range list {
+			if err := unknownField(list[i], v.Index(i), path+pointer(i)); err != nil {
+				return err
+			}
+		}
+	case reflect.Struct:
+		if obj, ok := raw.(map[string]any); ok {
+			return unknownStructField(obj, v, path)
+		}
+	}
+	// Anything else, including interface values, holds any JSON value.
+	return nil
+}
+
+func unknownStructField(obj map[string]any, v reflect.Value, path string) error {
+	switch v.Type() {
+	case iconNameOrPathType:
+		// Its decoding rejects unknown fields.
+		return nil
+	case functionResponseType:
+		// Its decoding rejects unknown fields; check the error object.
+		return unknownField(obj["error"], v.FieldByName("Error"), path+pointer("error"))
+	}
+	fields := jsonFields(v)
+	if fields == nil {
+		// A union type: the object form is its set variant.
+		for i := range v.NumField() {
+			if f := v.Field(i); f.Kind() == reflect.Pointer && !f.IsNil() {
+				return unknownField(obj, f, path)
+			}
+		}
+		return nil
+	}
+	anyField := false
+	if v.Type() == componentType {
+		fields["component"] = reflect.Value{}
+		for i := range v.NumField() {
+			f := v.Field(i)
+			if v.Type().Field(i).Tag.Get("json") != "-" || f.IsNil() {
+				continue
+			}
+			if f.Elem().Type() == customComponentType {
+				anyField = true
+				continue
+			}
+			maps.Copy(fields, jsonFields(f.Elem()))
+		}
+	}
+	for _, key := range slices.Sorted(maps.Keys(obj)) {
+		f, ok := fields[key]
 		if !ok {
-			return nil
-		}
-		for _, key := range slices.Sorted(maps.Keys(raw)) {
-			d, ok := decoded[key]
-			if !ok {
-				if isEmpty(raw[key]) {
-					continue
-				}
-				return invalid(ErrInvalidMessage, path+pointer(key), fmt.Sprintf("unknown field %q", key))
+			if anyField {
+				continue
 			}
-			if err := droppedField(raw[key], d, path+pointer(key)); err != nil {
-				return err
-			}
+			return invalid(ErrInvalidMessage, path+pointer(key), fmt.Sprintf("unknown field %q", key))
 		}
-	case []any:
-		decoded, ok := decoded.([]any)
-		if !ok || len(decoded) != len(raw) {
-			return nil
+		if !f.IsValid() {
+			continue
 		}
-		for i := range raw {
-			if err := droppedField(raw[i], decoded[i], path+pointer(i)); err != nil {
-				return err
-			}
+		if err := unknownField(obj[key], f, path+pointer(key)); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-// isEmpty reports whether the JSON value v is null, false, 0, "", []
-// or {}.
-func isEmpty(v any) bool {
-	switch v := v.(type) {
-	case nil:
-		return true
-	case bool:
-		return !v
-	case float64:
-		return v == 0
-	case string:
-		return v == ""
-	case []any:
-		return len(v) == 0
-	case map[string]any:
-		return len(v) == 0
+// jsonFields returns the fields of the struct v by JSON name, or nil if
+// none of its fields has a JSON name in its tag, as in union types,
+// which encode themselves.
+func jsonFields(v reflect.Value) map[string]reflect.Value {
+	var fields map[string]reflect.Value
+	for i := range v.NumField() {
+		name, _, _ := strings.Cut(v.Type().Field(i).Tag.Get("json"), ",")
+		if name == "" || name == "-" {
+			continue
+		}
+		if fields == nil {
+			fields = make(map[string]reflect.Value)
+		}
+		fields[name] = v.Field(i)
 	}
-	return false
+	return fields
 }
