@@ -3,6 +3,8 @@ package a2uischema
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 
 	"github.com/a2ui-project/a2ui/go/a2ui"
 )
@@ -229,6 +231,9 @@ func mergeInlineCatalogs(base *Catalog, inlineCatalogs []a2ui.CatalogDef) (*Cata
 		if err := mergeRawMap(merged.CatalogSchema, CatalogComponentsKey, "component", inline.Components); err != nil {
 			return nil, err
 		}
+		for _, name := range slices.Sorted(maps.Keys(inline.Components)) {
+			addOneOfRef(merged.CatalogSchema, "anyComponent", "#/components/"+name)
+		}
 		if len(inline.Functions) == 0 {
 			continue
 		}
@@ -248,8 +253,28 @@ func mergeInlineCatalogs(base *Catalog, inlineCatalogs []a2ui.CatalogDef) (*Cata
 			}
 			functions[name] = decoded
 		}
+		for _, name := range slices.Sorted(maps.Keys(inline.Functions)) {
+			addOneOfRef(merged.CatalogSchema, "anyFunction", "#/functions/"+name)
+		}
 	}
 	return merged, nil
+}
+
+// addOneOfRef adds {"$ref": ref} to the oneOf list of the definition
+// def in the $defs of schema, if the list exists and lacks it.
+func addOneOfRef(schema map[string]any, def, ref string) {
+	defs, _ := schema["$defs"].(map[string]any)
+	union, _ := defs[def].(map[string]any)
+	oneOf, ok := union["oneOf"].([]any)
+	if !ok {
+		return
+	}
+	for _, item := range oneOf {
+		if r, _ := item.(map[string]any)["$ref"].(string); r == ref {
+			return
+		}
+	}
+	union["oneOf"] = append(oneOf, map[string]any{"$ref": ref})
 }
 
 // mergeRawMap decodes each entry of raw into schema[key], creating the map if needed.

@@ -1,9 +1,11 @@
 package a2uischema
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -260,6 +262,43 @@ func TestValidatorCustomCatalog(t *testing.T) {
 				t.Errorf("Path = %q, want %q", ve.Path, tt.path)
 			}
 		})
+	}
+}
+
+func TestInlineCatalog(t *testing.T) {
+	manager, err := NewSchemaManager([]CatalogConfig{BasicCatalogConfig()}, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := &a2ui.RendererCapabilities{V1: &a2ui.RendererCapabilitiesV1{
+		InlineCatalogs: []a2ui.CatalogDef{{
+			CatalogID: "https://example.com/inline.json",
+			Components: map[string]json.RawMessage{
+				"Gauge": json.RawMessage(`{"type":"object","properties":{"component":{"const":"Gauge"},"label":{"$ref":"common_types.json#/$defs/Child"}}}`),
+			},
+			Functions: map[string]a2ui.FunctionDefinition{
+				"clamp": {Type: "object", ReturnType: a2ui.ReturnTypeNumber},
+			},
+		}},
+	}}
+	catalog, err := manager.SelectedCatalog(caps, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defs := catalog.CatalogSchema["$defs"].(map[string]any)
+	for def, ref := range map[string]string{
+		"anyComponent": "#/components/Gauge",
+		"anyFunction":  "#/functions/clamp",
+	} {
+		oneOf := defs[def].(map[string]any)["oneOf"].([]any)
+		if !slices.ContainsFunc(oneOf, func(x any) bool { return x.(map[string]any)["$ref"] == ref }) {
+			t.Errorf("$defs.%s.oneOf lacks %s", def, ref)
+		}
+	}
+
+	const msgs = `[{"version":"v1.0","createSurface":{"surfaceId":"s1","catalogId":"https://example.com/inline.json"}},{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Gauge","label":"l"},{"id":"l","component":"Text","text":"hi"}]}}]`
+	if err := catalog.Validator().ValidateJSON([]byte(msgs)); err != nil {
+		t.Fatal(err)
 	}
 }
 
