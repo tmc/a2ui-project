@@ -96,23 +96,32 @@ func stringList(x any) ([]string, bool) {
 }
 
 // ParseMessages parses a single A2UI message object or an array of them.
+//
+// Unlike decoding with [encoding/json], which ignores fields that
+// [a2ui.AgentMessage] does not define, ParseMessages reports such a
+// field as an [ErrInvalidMessage], as the schemas do. An example is the
+// returnType of a function call, which A2UI 1.x removed.
 func (v *Validator) ParseMessages(data []byte) ([]a2ui.AgentMessage, error) {
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
 		return nil, invalid(ErrInvalidMessage, "", "empty payload")
 	}
+	var msgs []a2ui.AgentMessage
 	if data[0] == '[' {
-		var msgs []a2ui.AgentMessage
 		if err := json.Unmarshal(data, &msgs); err != nil {
 			return nil, within(err, "", "parse messages")
 		}
-		return msgs, nil
+	} else {
+		var msg a2ui.AgentMessage
+		if err := json.Unmarshal(data, &msg); err != nil {
+			return nil, within(err, "", "parse message")
+		}
+		msgs = []a2ui.AgentMessage{msg}
 	}
-	var msg a2ui.AgentMessage
-	if err := json.Unmarshal(data, &msg); err != nil {
-		return nil, within(err, "", "parse message")
+	if err := checkFields(data, msgs); err != nil {
+		return nil, err
 	}
-	return []a2ui.AgentMessage{msg}, nil
+	return msgs, nil
 }
 
 // ValidateMessages validates a batch of A2UI messages.

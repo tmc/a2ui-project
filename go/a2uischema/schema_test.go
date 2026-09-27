@@ -3,6 +3,7 @@ package a2uischema
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -347,6 +348,52 @@ func TestValidatorComponentRefs(t *testing.T) {
 			err := validator.ValidateJSON([]byte(data))
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("ValidateJSON() = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidatorUnknownFields(t *testing.T) {
+	validator := mustBasicValidator(t)
+	const (
+		create = `{"version":"v1.0","createSurface":{"surfaceId":"s1"}}`
+		text   = `{"id":"root","component":"Text","text":%s}`
+	)
+	update := func(component string) string {
+		return `[` + create + `,{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[` + component + `]}}]`
+	}
+	tests := []struct {
+		name string
+		data string
+		path string // of the unknown field, or "" for none
+	}{
+		{"known", update(fmt.Sprintf(text, `"hi"`)), ""},
+		{"empty dropped fields", `{"version":"v1.0","createSurface":{"surfaceId":"s1","catalogId":"","sendDataModel":false,"components":[],"dataModel":{}}}`, ""},
+		{"null value", update(`{"id":"root","component":"Text","text":"hi","accessibility":{"label":null}}`), ""},
+		{"custom properties", `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"g","component":"Gauge","anything":1}]}}`, ""},
+		{"data model", `{"version":"v1.0","updateDataModel":{"surfaceId":"s1","path":"/a","value":{"any":{"key":1}}}}`, ""},
+		{"message", `{"version":"v1.0","deleteSurface":{"surfaceId":"s1"},"extra":1}`, "/extra"},
+		{"payload", `{"version":"v1.0","deleteSurface":{"surfaceId":"s1","extra":1}}`, "/deleteSurface/extra"},
+		{"component", update(`{"id":"root","component":"Text","text":"hi","colour":"red"}`), "/1/updateComponents/components/0/colour"},
+		{"field case", `{"version":"v1.0","deleteSurface":{"SurfaceId":"s1"}}`, "/deleteSurface/SurfaceId"},
+		{"binding", update(fmt.Sprintf(text, `{"path":"/a","default":"x"}`)), "/1/updateComponents/components/0/text/default"},
+		{"function call returnType", update(fmt.Sprintf(text, `{"call":"formatString","args":{"value":"x"},"returnType":"string"}`)), "/1/updateComponents/components/0/text/returnType"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := validator.ParseMessages([]byte(tt.data))
+			if tt.path == "" {
+				if err != nil {
+					t.Fatalf("ParseMessages() = %v, want nil", err)
+				}
+				return
+			}
+			var verr *ValidationError
+			if !errors.As(err, &verr) || !errors.Is(err, ErrInvalidMessage) || verr.Path != tt.path {
+				t.Fatalf("ParseMessages() = %v, want ErrInvalidMessage at %s", err, tt.path)
+			}
+			if err := validator.ValidateJSON([]byte(tt.data)); !errors.Is(err, ErrInvalidMessage) {
+				t.Fatalf("ValidateJSON() = %v, want ErrInvalidMessage", err)
 			}
 		})
 	}
