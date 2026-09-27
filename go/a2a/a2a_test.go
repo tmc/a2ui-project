@@ -27,15 +27,28 @@ func TestIsA2UIPartRejectsOtherMIMETypes(t *testing.T) {
 	}
 }
 
-func TestMarshalA2UIDataClonesMapPayload(t *testing.T) {
-	payload := map[string]any{"version": "v1.0"}
+func TestMarshalA2UIDataCopiesMapPayload(t *testing.T) {
+	payload := map[string]any{
+		"version":       "v1.0",
+		"deleteSurface": map[string]any{"surfaceId": "s1"},
+	}
 	data, err := MarshalA2UIData(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
 	data["version"] = "changed"
+	data["deleteSurface"].(map[string]any)["surfaceId"] = "changed"
 	if got := payload["version"]; got != "v1.0" {
-		t.Fatalf("payload version = %q, want unchanged", got)
+		t.Errorf("payload version = %q, want unchanged", got)
+	}
+	if got := payload["deleteSurface"].(map[string]any)["surfaceId"]; got != "s1" {
+		t.Errorf("payload surfaceId = %q, want unchanged", got)
+	}
+}
+
+func TestMarshalA2UIDataRejectsNilMap(t *testing.T) {
+	if _, err := MarshalA2UIData(map[string]any(nil)); err == nil {
+		t.Fatal("expected error")
 	}
 }
 

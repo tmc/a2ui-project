@@ -3,7 +3,6 @@ package a2a
 import (
 	"encoding/json"
 	"fmt"
-	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -54,13 +53,8 @@ func (p *DataPart) SetMeta(k string, v any) {
 
 // MarshalA2UIData marshals payload into an A2A data-part payload.
 // A2A data parts carry JSON objects, so payload must encode as a JSON object.
+// The result shares no memory with payload.
 func MarshalA2UIData(payload any) (map[string]any, error) {
-	if object, ok := payload.(map[string]any); ok {
-		if object == nil {
-			return nil, fmt.Errorf("a2a: payload must encode as a JSON object")
-		}
-		return maps.Clone(object), nil
-	}
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("a2a: marshal payload: %w", err)
