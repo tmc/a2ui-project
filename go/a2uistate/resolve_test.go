@@ -200,3 +200,21 @@ func TestFormatNumber(t *testing.T) {
 		}
 	}
 }
+
+func TestToString(t *testing.T) {
+	tests := []struct {
+		v    any
+		want string
+	}{
+		{"<b>&</b>", "<b>&</b>"},
+		{[]any{"<a>", 1.5}, `["<a>",1.5]`},
+		{map[string]any{"k": "a&b"}, `{"k":"a&b"}`},
+		{map[string]any{}, "{}"},
+		{nil, ""},
+	}
+	for _, tt := range tests {
+		if got := toString(tt.v); got != tt.want {
+			t.Errorf("toString(%#v) = %q, want %q", tt.v, got, tt.want)
+		}
+	}
+}

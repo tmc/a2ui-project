@@ -137,8 +137,12 @@ func toString(v any) string {
 	case bool:
 		return strconv.FormatBool(v)
 	}
-	data, _ := json.Marshal(v)
-	return string(data)
+	// Like JSON.stringify, do not escape <, > and &.
+	var b strings.Builder
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(false)
+	enc.Encode(v)
+	return strings.TrimSuffix(b.String(), "\n")
 }
 
 // formatNumber formats x as JavaScript's String(x) does, which is the
