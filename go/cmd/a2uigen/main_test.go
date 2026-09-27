@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -115,6 +116,7 @@ func TestGenerateSDKRootLayout(t *testing.T) {
 		{filepath.Join("a2uischema", "manager.go"), `"example.com/root"`},
 		{filepath.Join("a2uistate", "example_test.go"), `"example.com/root/a2uistate"`},
 		{filepath.Join("a2uistate", "eval.go"), `"example.com/root"`},
+		{"zz_function.go", "func Length(value DynamicString, max *int, min *int) DynamicValidationResult {"},
 	}
 	for _, check := range checks {
 		data, err := os.ReadFile(filepath.Join(dir, check.path))
@@ -160,6 +162,99 @@ func TestGenerateSDKRootLayout(t *testing.T) {
 		}
 		if strings.Contains(string(data), "github.com/a2ui-project/a2ui/go") {
 			t.Fatalf("%s contains upstream module import", path)
+		}
+	}
+}
+
+func TestParseFunctionArgs(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema string
+		want   []FuncArg
+	}{
+		{
+			"required order then optional by name",
+			`{"returnType": "string", "properties": {"args": {
+				"required": ["value", "other"],
+				"properties": {
+					"zero": {"$ref": "common_types.json#/$defs/DynamicString"},
+					"other": {"$ref": "common_types.json#/$defs/DynamicString"},
+					"one": {"$ref": "common_types.json#/$defs/DynamicString"},
+					"value": {"$ref": "common_types.json#/$defs/DynamicNumber"}
+				}
+			}}}`,
+			[]FuncArg{
+				{"value", "Value", "DynamicNumber", true},
+				{"other", "Other", "DynamicString", true},
+				{"one", "One", "DynamicString", false},
+				{"zero", "Zero", "DynamicString", false},
+			},
+		},
+		{
+			"optional scalars are pointers",
+			`{"returnType": "validationResult", "properties": {"args": {
+				"required": ["value", "pattern"],
+				"properties": {
+					"value": {"$ref": "common_types.json#/$defs/DynamicString"},
+					"pattern": {"type": "string"},
+					"min": {"type": "integer"},
+					"max": {"type": "number"},
+					"strict": {"type": "boolean"},
+					"flags": {"type": "string"}
+				}
+			}}}`,
+			[]FuncArg{
+				{"value", "Value", "DynamicString", true},
+				{"pattern", "Pattern", "string", true},
+				{"flags", "Flags", "*string", false},
+				{"max", "Max", "*float64", false},
+				{"min", "Min", "*int", false},
+				{"strict", "Strict", "*bool", false},
+			},
+		},
+		{
+			"no required list",
+			`{"returnType": "string", "properties": {"args": {"properties": {
+				"b": {"type": "integer"},
+				"a": {"$ref": "common_types.json#/$defs/DynamicBoolean"}
+			}}}}`,
+			[]FuncArg{
+				{"a", "A", "DynamicBoolean", false},
+				{"b", "B", "*int", false},
+			},
+		},
+	}
+	for _, tt := range tests {
+		fd, err := parseFunction("f", json.RawMessage(tt.schema))
+		if err != nil {
+			t.Errorf("%s: %v", tt.name, err)
+			continue
+		}
+		if len(fd.Args) != len(tt.want) {
+			t.Errorf("%s: args = %+v, want %+v", tt.name, fd.Args, tt.want)
+			continue
+		}
+		for i := range tt.want {
+			if fd.Args[i] != tt.want[i] {
+				t.Errorf("%s: arg %d = %+v, want %+v", tt.name, i, fd.Args[i], tt.want[i])
+			}
+		}
+	}
+}
+
+func TestFuncArgSetCond(t *testing.T) {
+	tests := []struct {
+		typ, want string
+	}{
+		{"*int", "x != nil"},
+		{"[]DynamicBoolean", "x != nil"},
+		{"DynamicNumber", "x != (DynamicNumber{})"},
+		{"DynamicStringList", "x.Literal != nil || x.Binding != nil || x.FunctionCall != nil"},
+		{"DynamicValue", "x.String != nil || x.Number != nil || x.Bool != nil || x.Array != nil || x.Binding != nil || x.FunctionCall != nil"},
+	}
+	for _, tt := range tests {
+		if got := (FuncArg{Name: "x", GoType: tt.typ}).SetCond(); got != tt.want {
+			t.Errorf("SetCond for %s = %q, want %q", tt.typ, got, tt.want)
 		}
 	}
 }

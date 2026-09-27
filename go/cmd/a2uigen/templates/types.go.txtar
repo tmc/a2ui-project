@@ -166,32 +166,27 @@ package a2ui
 {{range .Functions}}
 // {{.GoName}} creates a function call for "{{.Name}}".
 // {{.Desc}}
+{{- if .HasOptional}}
+// Optional arguments that are nil or zero are left out of the call.
+{{- end}}
 func {{.GoName}}({{range $i, $a := .Args}}{{if $i}}, {{end}}{{$a.Name}} {{$a.GoType}}{{end}}) {{.ReturnType}} {
-{{- if eq .ReturnType "Action"}}
-	return Action{FunctionCall: &FunctionCall{
-		Call: "{{.Name}}",
-		Args: map[string]any{
-{{- range .Args}}
-			"{{.Name}}": {{.Name}},
-{{- end}}
-		},
-{{- if $.CallReturnType}}
-		ReturnType: ReturnType{{.ReturnEnumPascal}},
-{{- end}}
-	}}
-{{- else}}
+	args := map[string]any{
+{{- range .Args}}{{if .Required}}
+		"{{.Name}}": {{.Name}},
+{{- end}}{{end}}
+	}
+{{- range .Args}}{{if not .Required}}
+	if {{.SetCond}} {
+		args["{{.Name}}"] = {{if .Pointer}}*{{end}}{{.Name}}
+	}
+{{- end}}{{end}}
 	return {{.ReturnType}}{FunctionCall: &FunctionCall{
 		Call: "{{.Name}}",
-		Args: map[string]any{
-{{- range .Args}}
-			"{{.Name}}": {{.Name}},
-{{- end}}
-		},
+		Args: args,
 {{- if $.CallReturnType}}
 		ReturnType: ReturnType{{.ReturnEnumPascal}},
 {{- end}}
 	}}
-{{- end}}
 }
 {{end}}
 -- zz_wrapper.go --

@@ -115,3 +115,14 @@ func ExampleTextFieldComponent() {
 	fmt.Println(string(data))
 	// Output: {"component":"TextField","id":"name","label":"Name","placeholder":"Ann Smith","value":{"path":"/user/name"}}
 }
+
+func ExampleLength() {
+	// Optional arguments are pointers; nil leaves them out.
+	check := a2ui.CheckRule{
+		Condition: a2ui.Length(a2ui.StringBinding("/password"), nil, new(8)),
+		Message:   "Use at least 8 characters",
+	}
+	data, _ := json.Marshal(check)
+	fmt.Println(string(data))
+	// Output: {"condition":{"call":"length","args":{"min":8,"value":{"path":"/password"}}},"message":"Use at least 8 characters"}
+}

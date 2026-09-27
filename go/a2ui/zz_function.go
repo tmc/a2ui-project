@@ -5,170 +5,215 @@ package a2ui
 // And creates a function call for "and".
 // Performs a logical AND operation on a list of boolean values.
 func And(values []DynamicBoolean) DynamicBoolean {
+	args := map[string]any{
+		"values": values,
+	}
 	return DynamicBoolean{FunctionCall: &FunctionCall{
 		Call: "and",
-		Args: map[string]any{
-			"values": values,
-		},
+		Args: args,
 	}}
 }
 
 // Email creates a function call for "email".
 // Checks that the value is a valid email address.
 func Email(value DynamicString) DynamicValidationResult {
+	args := map[string]any{
+		"value": value,
+	}
 	return DynamicValidationResult{FunctionCall: &FunctionCall{
 		Call: "email",
-		Args: map[string]any{
-			"value": value,
-		},
+		Args: args,
 	}}
 }
 
 // FormatCurrency creates a function call for "formatCurrency".
 // Formats a number as a currency string.
-func FormatCurrency(currency DynamicString, decimals DynamicNumber, grouping DynamicBoolean, value DynamicNumber) DynamicString {
+// Optional arguments that are nil or zero are left out of the call.
+func FormatCurrency(currency DynamicString, value DynamicNumber, decimals DynamicNumber, grouping DynamicBoolean) DynamicString {
+	args := map[string]any{
+		"currency": currency,
+		"value":    value,
+	}
+	if decimals != (DynamicNumber{}) {
+		args["decimals"] = decimals
+	}
+	if grouping != (DynamicBoolean{}) {
+		args["grouping"] = grouping
+	}
 	return DynamicString{FunctionCall: &FunctionCall{
 		Call: "formatCurrency",
-		Args: map[string]any{
-			"currency": currency,
-			"decimals": decimals,
-			"grouping": grouping,
-			"value":    value,
-		},
+		Args: args,
 	}}
 }
 
 // FormatDate creates a function call for "formatDate".
 // Formats a timestamp into a string using a pattern.
 func FormatDate(format DynamicString, value DynamicValue) DynamicString {
+	args := map[string]any{
+		"format": format,
+		"value":  value,
+	}
 	return DynamicString{FunctionCall: &FunctionCall{
 		Call: "formatDate",
-		Args: map[string]any{
-			"format": format,
-			"value":  value,
-		},
+		Args: args,
 	}}
 }
 
 // FormatNumber creates a function call for "formatNumber".
 // Formats a number with the specified grouping and decimal precision.
-func FormatNumber(decimals DynamicNumber, grouping DynamicBoolean, value DynamicNumber) DynamicString {
+// Optional arguments that are nil or zero are left out of the call.
+func FormatNumber(value DynamicNumber, decimals DynamicNumber, grouping DynamicBoolean) DynamicString {
+	args := map[string]any{
+		"value": value,
+	}
+	if decimals != (DynamicNumber{}) {
+		args["decimals"] = decimals
+	}
+	if grouping != (DynamicBoolean{}) {
+		args["grouping"] = grouping
+	}
 	return DynamicString{FunctionCall: &FunctionCall{
 		Call: "formatNumber",
-		Args: map[string]any{
-			"decimals": decimals,
-			"grouping": grouping,
-			"value":    value,
-		},
+		Args: args,
 	}}
 }
 
 // FormatString creates a function call for "formatString".
 // Performs string interpolation of data model values and other functions in the catalog functions list and returns the resulting string. The value string can contain interpolated expressions in the `${expression}` format. Supported expression types include: JSON Pointer paths to the data model (e.g., `${/absolute/path}` or `${relative/path}`), and renderer-side function calls (e.g., `${now()}`). Function arguments must be named (e.g., `${formatDate(value:${/currentDate}, format:'MM-dd')}`). To include a literal `${` sequence, escape it as `\${`.
 func FormatString(value DynamicString) DynamicString {
+	args := map[string]any{
+		"value": value,
+	}
 	return DynamicString{FunctionCall: &FunctionCall{
 		Call: "formatString",
-		Args: map[string]any{
-			"value": value,
-		},
+		Args: args,
 	}}
 }
 
 // Length creates a function call for "length".
 // Checks string length constraints.
-func Length(max int, min int, value DynamicString) DynamicValidationResult {
+// Optional arguments that are nil or zero are left out of the call.
+func Length(value DynamicString, max *int, min *int) DynamicValidationResult {
+	args := map[string]any{
+		"value": value,
+	}
+	if max != nil {
+		args["max"] = *max
+	}
+	if min != nil {
+		args["min"] = *min
+	}
 	return DynamicValidationResult{FunctionCall: &FunctionCall{
 		Call: "length",
-		Args: map[string]any{
-			"max":   max,
-			"min":   min,
-			"value": value,
-		},
+		Args: args,
 	}}
 }
 
 // Not creates a function call for "not".
 // Performs a logical NOT operation on a boolean value.
 func Not(value DynamicBoolean) DynamicBoolean {
+	args := map[string]any{
+		"value": value,
+	}
 	return DynamicBoolean{FunctionCall: &FunctionCall{
 		Call: "not",
-		Args: map[string]any{
-			"value": value,
-		},
+		Args: args,
 	}}
 }
 
 // Numeric creates a function call for "numeric".
 // Checks numeric range constraints.
-func Numeric(max float64, min float64, value DynamicNumber) DynamicValidationResult {
+// Optional arguments that are nil or zero are left out of the call.
+func Numeric(value DynamicNumber, max *float64, min *float64) DynamicValidationResult {
+	args := map[string]any{
+		"value": value,
+	}
+	if max != nil {
+		args["max"] = *max
+	}
+	if min != nil {
+		args["min"] = *min
+	}
 	return DynamicValidationResult{FunctionCall: &FunctionCall{
 		Call: "numeric",
-		Args: map[string]any{
-			"max":   max,
-			"min":   min,
-			"value": value,
-		},
+		Args: args,
 	}}
 }
 
 // OpenURL creates a function call for "openUrl".
 // Opens the specified URL in a browser or handler (requires user activation). This function has no return value.
 func OpenURL(url DynamicString) Action {
+	args := map[string]any{
+		"url": url,
+	}
 	return Action{FunctionCall: &FunctionCall{
 		Call: "openUrl",
-		Args: map[string]any{
-			"url": url,
-		},
+		Args: args,
 	}}
 }
 
 // Or creates a function call for "or".
 // Performs a logical OR operation on a list of boolean values.
 func Or(values []DynamicBoolean) DynamicBoolean {
+	args := map[string]any{
+		"values": values,
+	}
 	return DynamicBoolean{FunctionCall: &FunctionCall{
 		Call: "or",
-		Args: map[string]any{
-			"values": values,
-		},
+		Args: args,
 	}}
 }
 
 // Pluralize creates a function call for "pluralize".
 // Returns a localized string based on the Common Locale Data Repository (CLDR) plural category of the count (zero, one, two, few, many, other). Requires an 'other' fallback. For English, just use 'one' and 'other'.
-func Pluralize(few DynamicString, many DynamicString, one DynamicString, other DynamicString, two DynamicString, value DynamicNumber, zero DynamicString) DynamicString {
+// Optional arguments that are nil or zero are left out of the call.
+func Pluralize(value DynamicNumber, other DynamicString, few DynamicString, many DynamicString, one DynamicString, two DynamicString, zero DynamicString) DynamicString {
+	args := map[string]any{
+		"value": value,
+		"other": other,
+	}
+	if few != (DynamicString{}) {
+		args["few"] = few
+	}
+	if many != (DynamicString{}) {
+		args["many"] = many
+	}
+	if one != (DynamicString{}) {
+		args["one"] = one
+	}
+	if two != (DynamicString{}) {
+		args["two"] = two
+	}
+	if zero != (DynamicString{}) {
+		args["zero"] = zero
+	}
 	return DynamicString{FunctionCall: &FunctionCall{
 		Call: "pluralize",
-		Args: map[string]any{
-			"few":   few,
-			"many":  many,
-			"one":   one,
-			"other": other,
-			"two":   two,
-			"value": value,
-			"zero":  zero,
-		},
+		Args: args,
 	}}
 }
 
 // Regex creates a function call for "regex".
 // Checks that the value matches a regular expression string.
-func Regex(pattern string, value DynamicString) DynamicValidationResult {
+func Regex(value DynamicString, pattern string) DynamicValidationResult {
+	args := map[string]any{
+		"value":   value,
+		"pattern": pattern,
+	}
 	return DynamicValidationResult{FunctionCall: &FunctionCall{
 		Call: "regex",
-		Args: map[string]any{
-			"pattern": pattern,
-			"value":   value,
-		},
+		Args: args,
 	}}
 }
 
 // Required creates a function call for "required".
 // Checks that the value is not null, undefined, or empty.
 func Required(value DynamicValue) DynamicValidationResult {
+	args := map[string]any{
+		"value": value,
+	}
 	return DynamicValidationResult{FunctionCall: &FunctionCall{
 		Call: "required",
-		Args: map[string]any{
-			"value": value,
-		},
+		Args: args,
 	}}
 }

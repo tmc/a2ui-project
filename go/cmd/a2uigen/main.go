@@ -249,36 +249,43 @@ type FuncDef struct {
 	Desc             string
 }
 
+// HasOptional reports whether the function has optional args.
+func (f FuncDef) HasOptional() bool {
+	for _, a := range f.Args {
+		if !a.Required {
+			return true
+		}
+	}
+	return false
+}
+
 type FuncArg struct {
 	Name     string
 	GoName   string
-	GoType   string
+	GoType   string // parameter type
 	Required bool
 }
 
-// WrapDynamicValue returns a Go expression that wraps this arg into a DynamicValue.
-func (a FuncArg) WrapDynamicValue() string {
-	switch a.GoType {
-	case "DynamicString":
-		return "dynamicStringToValue(" + a.Name + ")"
-	case "DynamicNumber":
-		return "dynamicNumberToValue(" + a.Name + ")"
-	case "DynamicBoolean":
-		return "dynamicBoolToValue(" + a.Name + ")"
-	case "DynamicValue":
-		return a.Name
-	case "string":
-		return "ValueString(" + a.Name + ")"
-	case "float64":
-		return "ValueNumber(" + a.Name + ")"
-	case "int":
-		return "ValueNumber(float64(" + a.Name + "))"
-	case "bool":
-		return "ValueBool(" + a.Name + ")"
-	case "[]DynamicBoolean":
-		return "dynamicBoolSliceToValue(" + a.Name + ")"
+// Pointer reports whether the arg is an optional plain scalar, which is
+// passed as a pointer so that nil can leave it out.
+func (a FuncArg) Pointer() bool {
+	return strings.HasPrefix(a.GoType, "*")
+}
+
+// SetCond returns a Go expression that reports whether the optional
+// arg is set and so belongs in the call's args.
+func (a FuncArg) SetCond() string {
+	switch t := a.GoType; {
+	case strings.HasPrefix(t, "*"), strings.HasPrefix(t, "[]"), strings.HasPrefix(t, "map["), t == "any":
+		return a.Name + " != nil"
+	case t == "DynamicStringList":
+		return a.Name + ".Literal != nil || " + a.Name + ".Binding != nil || " + a.Name + ".FunctionCall != nil"
+	case t == "DynamicValue":
+		return a.Name + ".String != nil || " + a.Name + ".Number != nil || " + a.Name + ".Bool != nil || " +
+			a.Name + ".Array != nil || " + a.Name + ".Binding != nil || " + a.Name + ".FunctionCall != nil"
 	default:
-		return "ValueString(fmt.Sprint(" + a.Name + "))"
+		// The other dynamic types hold only pointers, so they are comparable.
+		return a.Name + " != (" + t + "{})"
 	}
 }
 
@@ -1300,14 +1307,25 @@ func parseFunction(name string, raw json.RawMessage) (FuncDef, error) {
 		fd.ReturnType = "DynamicValue"
 	}
 
-	argNames := sortedKeys(fs.Properties.Args.Properties)
+	// Required args come first, in the order of the schema's required
+	// list, then the optional args by name.
+	props := fs.Properties.Args.Properties
+	var argNames []string
 	reqArgs := map[string]bool{}
 	for _, r := range fs.Properties.Args.Required {
-		reqArgs[r] = true
+		if _, ok := props[r]; ok && !reqArgs[r] {
+			reqArgs[r] = true
+			argNames = append(argNames, r)
+		}
+	}
+	for _, aname := range sortedKeys(props) {
+		if !reqArgs[aname] {
+			argNames = append(argNames, aname)
+		}
 	}
 
 	for _, aname := range argNames {
-		aprop := fs.Properties.Args.Properties[aname]
+		aprop := props[aname]
 		arg := FuncArg{
 			Name:     aname,
 			GoName:   pascalCase(aname),
@@ -1321,6 +1339,13 @@ func parseFunction(name string, raw json.RawMessage) (FuncDef, error) {
 		// And/Or values are []DynamicBoolean
 		if aprop.Type == "array" && aprop.Items != nil && aprop.Items.Ref != "" {
 			arg.GoType = "[]" + refToGoType(aprop.Items.Ref)
+		}
+		// Optional plain scalars are pointers, so that nil leaves them out.
+		switch arg.GoType {
+		case "int", "float64", "string", "bool":
+			if !arg.Required {
+				arg.GoType = "*" + arg.GoType
+			}
 		}
 		fd.Args = append(fd.Args, arg)
 	}
