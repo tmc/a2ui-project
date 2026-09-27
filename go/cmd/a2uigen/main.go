@@ -152,6 +152,7 @@ func generateFromSchemas(schemas, catalogPath, out, module, a2uiDir, buildDir, a
 // Schema types for parsing the JSON schemas.
 
 type catalogFile struct {
+	CatalogID  string                     `json:"catalogId"`
 	Components map[string]json.RawMessage `json:"components"`
 	Functions  map[string]json.RawMessage `json:"functions"`
 }
@@ -288,6 +289,9 @@ type TemplateData struct {
 	Functions   []FuncDef
 	ReturnTypes []EnumValue
 	Wrappers    []Wrapper
+
+	// CatalogID is the ID of the catalog that defines Components.
+	CatalogID string
 
 	// CallReturnType reports whether FunctionCall carries a returnType
 	// field on the wire. It was removed in v1.0.
@@ -852,7 +856,7 @@ func parseCommonTypes(path string) (*commonTypesFile, error) {
 }
 
 func buildTemplateData(cat *catalogFile, ct, catalogDef *commonTypesFile) (*TemplateData, error) {
-	td := &TemplateData{}
+	td := &TemplateData{CatalogID: cat.CatalogID}
 
 	// Parse components in a stable order.
 	compNames := sortedKeys(cat.Components)

@@ -12,7 +12,7 @@ func Example() {
 		Version: a2ui.Version,
 		CreateSurface: &a2ui.CreateSurface{
 			SurfaceID: "demo",
-			CatalogID: "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json",
+			CatalogID: a2ui.BasicCatalogID,
 		},
 	}
 	data, _ := json.Marshal(msg)

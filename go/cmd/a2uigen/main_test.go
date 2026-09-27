@@ -110,6 +110,7 @@ func TestGenerateSDKRootLayout(t *testing.T) {
 	}{
 		{"message.go", "package a2ui\n"},
 		{"zz_component.go", "package a2ui\n"},
+		{"zz_component.go", `const BasicCatalogID = "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"`},
 		{filepath.Join("a2uibuild", "zz_builders.go"), `import "example.com/root"`},
 		{filepath.Join("a2uischema", "manager.go"), `"example.com/root"`},
 	}

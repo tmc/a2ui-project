@@ -37,7 +37,7 @@ func ExampleSchemaManager_GenerateSystemPrompt() {
 func ExampleSchemaManager_SelectedCatalog() {
 	manager := newManager()
 	caps := &a2ui.RendererCapabilities{V1: &a2ui.RendererCapabilitiesV1{
-		SupportedCatalogIDs: []string{"https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"},
+		SupportedCatalogIDs: []string{a2ui.BasicCatalogID},
 	}}
 	catalog, err := manager.SelectedCatalog(caps, []string{"Text"}, nil)
 	if err != nil {

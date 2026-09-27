@@ -14,7 +14,7 @@ import (
 	"github.com/a2ui-project/a2ui/go/a2uistream"
 )
 
-const basicCatalogID = "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+const basicCatalogID = a2ui.BasicCatalogID
 
 func TestSchemaManagerGenerateSystemPrompt(t *testing.T) {
 	manager := mustBasicManager(t)

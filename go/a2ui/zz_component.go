@@ -2,6 +2,10 @@
 
 package a2ui
 
+// BasicCatalogID is the ID of the basic catalog, which defines the
+// component and function types of this package.
+const BasicCatalogID = "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+
 // TabDef defines a tab within a [Tabs] component.
 type TabDef struct {
 	Title DynamicString `json:"title"`

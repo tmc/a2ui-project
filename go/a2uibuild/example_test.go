@@ -9,7 +9,7 @@ import (
 )
 
 func Example() {
-	s := a2uibuild.NewSurface("contact", "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json").
+	s := a2uibuild.NewSurface("contact", a2ui.BasicCatalogID).
 		Add(a2uibuild.Column("root", a2uibuild.Children("greeting"))).
 		Add(a2uibuild.Text("greeting", a2ui.StringLiteral("Hello, world!")))
 
