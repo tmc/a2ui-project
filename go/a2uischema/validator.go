@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 
-	v09 "github.com/a2ui-project/a2ui/go/a2ui/v09"
+	"github.com/a2ui-project/a2ui/go/a2ui"
 )
 
 var (
@@ -53,119 +54,111 @@ func NewValidator(catalog *Catalog) *Validator {
 	return v
 }
 
-// ParseMessagesV09 parses a single A2UI v0.9 or v0.9.1 message object or an
-// array of them.
-func (v *Validator) ParseMessagesV09(data []byte) ([]v09.ServerMessage, error) {
+// ParseMessages parses a single A2UI message object or an array of them.
+func (v *Validator) ParseMessages(data []byte) ([]a2ui.AgentMessage, error) {
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 {
 		return nil, fmt.Errorf("a2uischema: empty payload")
 	}
 	if data[0] == '[' {
-		var msgs []v09.ServerMessage
+		var msgs []a2ui.AgentMessage
 		if err := json.Unmarshal(data, &msgs); err != nil {
 			return nil, fmt.Errorf("a2uischema: parse messages: %w", err)
 		}
 		return msgs, nil
 	}
-	var msg v09.ServerMessage
+	var msg a2ui.AgentMessage
 	if err := json.Unmarshal(data, &msg); err != nil {
 		return nil, fmt.Errorf("a2uischema: parse message: %w", err)
 	}
-	return []v09.ServerMessage{msg}, nil
+	return []a2ui.AgentMessage{msg}, nil
 }
 
-// ValidateJSON parses and validates a raw JSON payload
-// using the protocol version of the validator's catalog.
-func (v *Validator) ValidateJSON(data []byte) error {
-	if v.catalogVersion() == Version1 {
-		msgs, err := v.ParseMessages(data)
-		if err != nil {
-			return err
-		}
-		return v.ValidateMessages(msgs)
-	}
-	msgs, err := v.ParseMessagesV09(data)
-	if err != nil {
-		return err
-	}
-	return v.ValidateMessagesV09(msgs)
-}
-
-// ValidateExample validates either a raw message payload or an example file
-// with a top-level messages array.
-func (v *Validator) ValidateExample(data []byte) error {
-	err := v.ValidateJSON(data)
-	if err == nil {
-		return nil
-	}
-	var example struct {
-		Messages json.RawMessage `json:"messages"`
-	}
-	if json.Unmarshal(data, &example) != nil || len(bytes.TrimSpace(example.Messages)) == 0 {
-		return err
-	}
-	return v.ValidateJSON(example.Messages)
-}
-
-// ValidateMessagesV09 validates a batch of A2UI v0.9 or v0.9.1 messages.
-// The validator's catalog must be a v0.9 or v0.9.1 catalog.
-func (v *Validator) ValidateMessagesV09(msgs []v09.ServerMessage) error {
-	if version := v.catalogVersion(); !isV09WireVersion(version) {
-		return fmt.Errorf("a2uischema: catalog version = %q, want %q or %q", version, Version09, Version091)
-	}
+// ValidateMessages validates a batch of A2UI messages.
+func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 	if len(msgs) == 0 {
 		return fmt.Errorf("a2uischema: no messages to validate")
 	}
-	surfaces := make(map[string]string)
+	// Components may reference children that arrive in later messages
+	// (progressive rendering), so unknown references are only reported
+	// if they remain unresolved after the last message.
 	surfaceComponents := make(map[string]map[string]bool)
+	pending := make(map[string][]componentRef)
 	for i, msg := range msgs {
 		if err := v.validateMessage(msg); err != nil {
 			return fmt.Errorf("a2uischema: message[%d]: %w", i, err)
 		}
 		switch {
 		case msg.CreateSurface != nil:
-			surfaces[msg.CreateSurface.SurfaceID] = msg.CreateSurface.CatalogID
-			if surfaceComponents[msg.CreateSurface.SurfaceID] == nil {
-				surfaceComponents[msg.CreateSurface.SurfaceID] = make(map[string]bool)
+			id := msg.CreateSurface.SurfaceID
+			known := make(map[string]bool)
+			surfaceComponents[id] = known
+			pending[id] = nil
+			if len(msg.CreateSurface.Components) > 0 {
+				refs, err := v.validateComponents(msg.CreateSurface.Components, nil)
+				if err != nil {
+					return fmt.Errorf("createSurface: %w", err)
+				}
+				for _, component := range msg.CreateSurface.Components {
+					known[component.ID] = true
+				}
+				pending[id] = refs
 			}
 		case msg.UpdateComponents != nil:
-			if catalogID, ok := surfaces[msg.UpdateComponents.SurfaceID]; ok {
-				_ = catalogID
-			}
-			known := surfaceComponents[msg.UpdateComponents.SurfaceID]
-			if err := v.validateComponents(msg.UpdateComponents.Components, known); err != nil {
+			id := msg.UpdateComponents.SurfaceID
+			known := surfaceComponents[id]
+			refs, err := v.validateComponents(msg.UpdateComponents.Components, known)
+			if err != nil {
 				return fmt.Errorf("updateComponents: %w", err)
 			}
 			if known == nil {
 				known = make(map[string]bool)
-				surfaceComponents[msg.UpdateComponents.SurfaceID] = known
+				surfaceComponents[id] = known
 			}
 			for _, component := range msg.UpdateComponents.Components {
 				known[component.ID] = true
 			}
+			pending[id] = slices.DeleteFunc(append(pending[id], refs...), func(r componentRef) bool { return known[r.to] })
+		case msg.DeleteSurface != nil:
+			delete(surfaceComponents, msg.DeleteSurface.SurfaceID)
+			delete(pending, msg.DeleteSurface.SurfaceID)
 		case msg.UpdateDataModel != nil:
 			if err := validatePath(msg.UpdateDataModel.Path, true); err != nil {
 				return fmt.Errorf("updateDataModel.path: %w", err)
 			}
 		}
 	}
+	for _, id := range slices.Sorted(maps.Keys(pending)) {
+		if refs := pending[id]; len(refs) > 0 {
+			r := refs[0]
+			return fmt.Errorf("a2uischema: surface %q: %w", id, validationError(ValidationUnknownComponentRef, "", r.from, r.to, "", fmt.Sprintf("component %q references unknown component %q", r.from, r.to)))
+		}
+	}
 	return nil
 }
 
-func (v *Validator) validateMessage(msg v09.ServerMessage) error {
-	wantVersion := wireVersion(v.catalog.Version)
-	if msg.Version != string(wantVersion) {
-		return fmt.Errorf("version = %q, want %q", msg.Version, wantVersion)
+// A componentRef is a reference from one component to another.
+type componentRef struct {
+	from, to string
+}
+
+func (v *Validator) validateMessage(msg a2ui.AgentMessage) error {
+	if msg.Version != a2ui.Version {
+		return fmt.Errorf("version = %q, want %q", msg.Version, a2ui.Version)
+	}
+	switch countSet(msg.CreateSurface != nil, msg.UpdateComponents != nil, msg.UpdateDataModel != nil, msg.DeleteSurface != nil, msg.CallRendererFunction != nil, msg.AgentFunctionResponse != nil) {
+	case 1:
+	case 0:
+		return fmt.Errorf("message has no payload")
+	default:
+		return fmt.Errorf("message has multiple payloads")
 	}
 	switch {
 	case msg.CreateSurface != nil:
 		if msg.CreateSurface.SurfaceID == "" {
 			return fmt.Errorf("createSurface.surfaceId is required")
 		}
-		if msg.CreateSurface.CatalogID == "" {
-			return fmt.Errorf("createSurface.catalogId is required")
-		}
-		if v.catalog != nil {
+		if msg.CreateSurface.CatalogID != "" && v.catalog != nil {
 			id, err := v.catalog.ID()
 			if err == nil && len(v.allowedComponents) > 0 && msg.CreateSurface.CatalogID != id {
 				return fmt.Errorf("createSurface.catalogId = %q, want %q", msg.CreateSurface.CatalogID, id)
@@ -186,46 +179,44 @@ func (v *Validator) validateMessage(msg v09.ServerMessage) error {
 		if msg.DeleteSurface.SurfaceID == "" {
 			return fmt.Errorf("deleteSurface.surfaceId is required")
 		}
-	default:
-		return fmt.Errorf("message has no payload")
+	case msg.CallRendererFunction != nil:
+		call := msg.CallRendererFunction
+		if call.FunctionCallID == "" {
+			return fmt.Errorf("callRendererFunction.functionCallId is required")
+		}
+		if call.CallFunction.CatalogID == "" {
+			return fmt.Errorf("callRendererFunction.callFunction.catalogId is required")
+		}
+		if err := v.validateFunctionCall(call.CallFunction, 0); err != nil {
+			return fmt.Errorf("callRendererFunction.callFunction: %w", err)
+		}
+	case msg.AgentFunctionResponse != nil:
+		if err := validateFunctionResponse(*msg.AgentFunctionResponse); err != nil {
+			return fmt.Errorf("agentFunctionResponse: %w", err)
+		}
 	}
 	return nil
 }
 
-func (v *Validator) catalogVersion() Version {
-	if v.catalog == nil {
-		return ""
-	}
-	return v.catalog.Version
-}
-
-func isV09WireVersion(version Version) bool {
-	return version == Version09 || version == Version091
-}
-
-func wireVersion(version Version) Version {
-	if version == Version091 {
-		return Version09
-	}
-	return version
-}
-
-func (v *Validator) validateComponents(components []v09.Component, known map[string]bool) error {
+// validateComponents validates components and returns the references
+// to components that are neither in components nor in known.
+func (v *Validator) validateComponents(components []a2ui.Component, known map[string]bool) ([]componentRef, error) {
 	ids := make(map[string]int, len(components))
 	for i, component := range components {
 		if err := v.validateComponent(component); err != nil {
-			return fmt.Errorf("component[%d] (%s): %w", i, component.ID, err)
+			return nil, fmt.Errorf("component[%d] (%s): %w", i, component.ID, err)
 		}
 		if _, ok := ids[component.ID]; ok {
-			return validationError(ValidationDuplicateComponent, "", component.ID, "", "", fmt.Sprintf("duplicate component id %q", component.ID))
+			return nil, validationError(ValidationDuplicateComponent, "", component.ID, "", "", fmt.Sprintf("duplicate component id %q", component.ID))
 		}
 		ids[component.ID] = i
 	}
+	var unknown []componentRef
 	graph := make(map[string][]string, len(components))
 	for _, component := range components {
 		refs, err := componentRefs(component)
 		if err != nil {
-			return fmt.Errorf("component %q: %w", component.ID, err)
+			return nil, fmt.Errorf("component %q: %w", component.ID, err)
 		}
 		graph[component.ID] = nil
 		for _, ref := range refs {
@@ -236,21 +227,21 @@ func (v *Validator) validateComponents(components []v09.Component, known map[str
 			if known != nil && known[ref] {
 				continue
 			}
-			return validationError(ValidationUnknownComponentRef, "", component.ID, ref, "", fmt.Sprintf("component %q references unknown component %q", component.ID, ref))
+			unknown = append(unknown, componentRef{component.ID, ref})
 		}
 	}
 	if _, ok := ids["root"]; !ok && len(known) == 0 {
-		return validationError(ValidationMissingRootComponent, "", "root", "", "", fmt.Sprintf("components must include id %q", "root"))
+		return nil, validationError(ValidationMissingRootComponent, "", "root", "", "", fmt.Sprintf("components must include id %q", "root"))
 	}
 	if _, ok := ids["root"]; ok {
 		if err := validateTopology(graph, "root"); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return unknown, nil
 }
 
-func (v *Validator) validateComponent(component v09.Component) error {
+func (v *Validator) validateComponent(component a2ui.Component) error {
 	if component.ID == "" {
 		return fmt.Errorf("id is required")
 	}
@@ -264,10 +255,7 @@ func (v *Validator) validateComponent(component v09.Component) error {
 		}
 	}
 	for _, check := range component.Checks {
-		if check.Message == "" {
-			return fmt.Errorf("check message is required")
-		}
-		if err := v.validateDynamicBoolean(check.Condition, 0); err != nil {
+		if err := v.validateDynamicValidationResult(check.Condition, 0); err != nil {
 			return fmt.Errorf("check condition: %w", err)
 		}
 	}
@@ -280,6 +268,16 @@ func (v *Validator) validateComponent(component v09.Component) error {
 		if component.Accessibility.Description != nil {
 			if err := v.validateDynamicString(*component.Accessibility.Description, 0); err != nil {
 				return fmt.Errorf("accessibility.description: %w", err)
+			}
+		}
+		switch component.Accessibility.Live {
+		case "", a2ui.AccessibleLiveOff, a2ui.AccessibleLivePolite, a2ui.AccessibleLiveAssertive:
+		default:
+			return fmt.Errorf("accessibility.live = %q is not allowed", component.Accessibility.Live)
+		}
+		if component.Accessibility.Hidden != nil {
+			if err := v.validateDynamicBoolean(*component.Accessibility.Hidden, 0); err != nil {
+				return fmt.Errorf("accessibility.hidden: %w", err)
 			}
 		}
 	}
@@ -338,6 +336,11 @@ func (v *Validator) validateComponent(component v09.Component) error {
 				return fmt.Errorf("textField.value: %w", err)
 			}
 		}
+		if component.TextField.Placeholder != nil {
+			if err := v.validateDynamicString(*component.TextField.Placeholder, 0); err != nil {
+				return fmt.Errorf("textField.placeholder: %w", err)
+			}
+		}
 	case component.CheckBox != nil:
 		if err := v.validateDynamicString(component.CheckBox.Label, 0); err != nil {
 			return fmt.Errorf("checkBox.label: %w", err)
@@ -378,7 +381,7 @@ func (v *Validator) validateComponent(component v09.Component) error {
 		if err := v.validateDynamicString(component.DateTimeInput.Value, 0); err != nil {
 			return fmt.Errorf("dateTimeInput.value: %w", err)
 		}
-		for name, value := range map[string]*v09.DynamicString{
+		for name, value := range map[string]*a2ui.DynamicString{
 			"label": component.DateTimeInput.Label,
 			"max":   component.DateTimeInput.Max,
 			"min":   component.DateTimeInput.Min,
@@ -393,11 +396,11 @@ func (v *Validator) validateComponent(component v09.Component) error {
 	return nil
 }
 
-func (v *Validator) validateTextComponent(component v09.TextComponent) error {
+func (v *Validator) validateTextComponent(component a2ui.TextComponent) error {
 	return v.validateDynamicString(component.Text, 0)
 }
 
-func (v *Validator) validateImageComponent(component v09.ImageComponent) error {
+func (v *Validator) validateImageComponent(component a2ui.ImageComponent) error {
 	if err := v.validateDynamicString(component.URL, 0); err != nil {
 		return err
 	}
@@ -409,18 +412,28 @@ func (v *Validator) validateImageComponent(component v09.ImageComponent) error {
 	return nil
 }
 
-func (v *Validator) validateIconComponent(component v09.IconComponent) error {
-	if component.Name.Name == nil && component.Name.SVGPath == nil && component.Name.Binding == nil {
+func (v *Validator) validateIconComponent(component a2ui.IconComponent) error {
+	name := component.Name
+	switch {
+	case name.SVGPath != nil:
+		return v.validateDynamicString(*name.SVGPath, 0)
+	case name.Name == nil && name.Binding == nil:
 		return fmt.Errorf("icon.name is required")
 	}
 	return nil
 }
 
-func (v *Validator) validateVideoComponent(component v09.VideoComponent) error {
-	return v.validateDynamicString(component.URL, 0)
+func (v *Validator) validateVideoComponent(component a2ui.VideoComponent) error {
+	if err := v.validateDynamicString(component.URL, 0); err != nil {
+		return err
+	}
+	if component.PosterURL != nil {
+		return v.validateDynamicString(*component.PosterURL, 0)
+	}
+	return nil
 }
 
-func (v *Validator) validateAudioPlayerComponent(component v09.AudioPlayerComponent) error {
+func (v *Validator) validateAudioPlayerComponent(component a2ui.AudioPlayerComponent) error {
 	if err := v.validateDynamicString(component.URL, 0); err != nil {
 		return err
 	}
@@ -430,7 +443,7 @@ func (v *Validator) validateAudioPlayerComponent(component v09.AudioPlayerCompon
 	return nil
 }
 
-func (v *Validator) validateContainerChildren(children v09.ChildList) error {
+func (v *Validator) validateContainerChildren(children a2ui.ChildList) error {
 	if len(children.IDs) == 0 && children.Template == nil {
 		return fmt.Errorf("children must not be empty")
 	}
@@ -445,13 +458,18 @@ func (v *Validator) validateContainerChildren(children v09.ChildList) error {
 	return nil
 }
 
-func (v *Validator) validateAction(action v09.Action, depth int) error {
+func (v *Validator) validateAction(action a2ui.Action, depth int) error {
 	switch {
 	case action.Event != nil && action.FunctionCall != nil:
 		return fmt.Errorf("action must not have both event and functionCall")
 	case action.Event != nil:
 		if action.Event.Name == "" {
 			return fmt.Errorf("event.name is required")
+		}
+		if action.Event.UserMessage != nil {
+			if err := v.validateDynamicString(*action.Event.UserMessage, depth+1); err != nil {
+				return fmt.Errorf("event.userMessage: %w", err)
+			}
 		}
 		for key, value := range action.Event.Context {
 			if err := v.validateDynamicValue(value, depth+1); err != nil {
@@ -468,7 +486,7 @@ func (v *Validator) validateAction(action v09.Action, depth int) error {
 	return nil
 }
 
-func (v *Validator) validateDynamicString(value v09.DynamicString, depth int) error {
+func (v *Validator) validateDynamicString(value a2ui.DynamicString, depth int) error {
 	switch {
 	case value.Literal != nil:
 		return nil
@@ -481,7 +499,7 @@ func (v *Validator) validateDynamicString(value v09.DynamicString, depth int) er
 	}
 }
 
-func (v *Validator) validateDynamicNumber(value v09.DynamicNumber, depth int) error {
+func (v *Validator) validateDynamicNumber(value a2ui.DynamicNumber, depth int) error {
 	switch {
 	case value.Literal != nil:
 		return nil
@@ -494,7 +512,7 @@ func (v *Validator) validateDynamicNumber(value v09.DynamicNumber, depth int) er
 	}
 }
 
-func (v *Validator) validateDynamicBoolean(value v09.DynamicBoolean, depth int) error {
+func (v *Validator) validateDynamicBoolean(value a2ui.DynamicBoolean, depth int) error {
 	switch {
 	case value.Literal != nil:
 		return nil
@@ -507,7 +525,7 @@ func (v *Validator) validateDynamicBoolean(value v09.DynamicBoolean, depth int) 
 	}
 }
 
-func (v *Validator) validateDynamicStringList(value v09.DynamicStringList, depth int) error {
+func (v *Validator) validateDynamicStringList(value a2ui.DynamicStringList, depth int) error {
 	switch {
 	case value.Literal != nil:
 		return nil
@@ -520,7 +538,7 @@ func (v *Validator) validateDynamicStringList(value v09.DynamicStringList, depth
 	}
 }
 
-func (v *Validator) validateDynamicValue(value v09.DynamicValue, depth int) error {
+func (v *Validator) validateDynamicValue(value a2ui.DynamicValue, depth int) error {
 	switch {
 	case value.String != nil, value.Number != nil, value.Bool != nil, value.Array != nil:
 		return nil
@@ -533,14 +551,30 @@ func (v *Validator) validateDynamicValue(value v09.DynamicValue, depth int) erro
 	}
 }
 
-func (v *Validator) validateFunctionCall(call v09.FunctionCall, depth int) error {
+func (v *Validator) validateDynamicValidationResult(value a2ui.DynamicValidationResult, depth int) error {
+	switch {
+	case value.Binding != nil && value.FunctionCall != nil:
+		return fmt.Errorf("condition must not have both path and call")
+	case value.Binding != nil:
+		return validatePath(value.Binding.Path, false)
+	case value.FunctionCall != nil:
+		return v.validateFunctionCall(*value.FunctionCall, depth+1)
+	default:
+		return fmt.Errorf("condition has no value")
+	}
+}
+
+// indexFunction is the v1.0 system function available in list templates.
+const indexFunction = "@index"
+
+func (v *Validator) validateFunctionCall(call a2ui.FunctionCall, depth int) error {
 	if depth > 32 {
 		return fmt.Errorf("function call recursion depth exceeded")
 	}
 	if call.Call == "" {
 		return fmt.Errorf("function call name is required")
 	}
-	if len(v.allowedFunctions) > 0 {
+	if len(v.allowedFunctions) > 0 && call.Call != indexFunction {
 		if _, ok := v.allowedFunctions[call.Call]; !ok {
 			return validationError(ValidationUnknownFunction, "", "", "", call.Call, fmt.Sprintf("unknown function %q", call.Call))
 		}
@@ -576,7 +610,7 @@ func (v *Validator) validateFunctionArg(arg any, depth int) error {
 			if err != nil {
 				return err
 			}
-			var call v09.FunctionCall
+			var call a2ui.FunctionCall
 			if err := json.Unmarshal(data, &call); err != nil {
 				return err
 			}
@@ -593,22 +627,39 @@ func (v *Validator) validateFunctionArg(arg any, depth int) error {
 			}
 		}
 		return nil
-	case v09.DynamicValue:
+	case a2ui.DynamicValue:
 		return v.validateDynamicValue(value, depth+1)
-	case v09.DynamicString:
+	case a2ui.DynamicString:
 		return v.validateDynamicString(value, depth+1)
-	case v09.DynamicNumber:
+	case a2ui.DynamicNumber:
 		return v.validateDynamicNumber(value, depth+1)
-	case v09.DynamicBoolean:
+	case a2ui.DynamicBoolean:
 		return v.validateDynamicBoolean(value, depth+1)
-	case v09.DynamicStringList:
+	case a2ui.DynamicStringList:
 		return v.validateDynamicStringList(value, depth+1)
 	default:
 		return nil
 	}
 }
 
-func componentRefs(component v09.Component) ([]string, error) {
+func validateFunctionResponse(response a2ui.FunctionResponse) error {
+	if response.FunctionCallID == "" {
+		return fmt.Errorf("functionCallId is required")
+	}
+	switch {
+	case response.Error == nil:
+		return nil
+	case response.Value != nil:
+		return fmt.Errorf("must not have both value and error")
+	case response.Error.Code == "":
+		return fmt.Errorf("error.code is required")
+	case response.Error.Message == "":
+		return fmt.Errorf("error.message is required")
+	}
+	return nil
+}
+
+func componentRefs(component a2ui.Component) ([]string, error) {
 	switch {
 	case component.Button != nil:
 		return []string{component.Button.Child}, nil
@@ -633,11 +684,46 @@ func componentRefs(component v09.Component) ([]string, error) {
 	}
 }
 
-func childListRefs(children v09.ChildList) ([]string, error) {
+func childListRefs(children a2ui.ChildList) ([]string, error) {
 	if children.Template != nil {
 		return []string{children.Template.ComponentID}, nil
 	}
 	return append([]string(nil), children.IDs...), nil
+}
+
+func countSet(values ...bool) int {
+	var count int
+	for _, value := range values {
+		if value {
+			count++
+		}
+	}
+	return count
+}
+
+// ValidateJSON parses and validates a raw JSON payload.
+func (v *Validator) ValidateJSON(data []byte) error {
+	msgs, err := v.ParseMessages(data)
+	if err != nil {
+		return err
+	}
+	return v.ValidateMessages(msgs)
+}
+
+// ValidateExample validates either a raw message payload or an example file
+// with a top-level messages array.
+func (v *Validator) ValidateExample(data []byte) error {
+	err := v.ValidateJSON(data)
+	if err == nil {
+		return nil
+	}
+	var example struct {
+		Messages json.RawMessage `json:"messages"`
+	}
+	if json.Unmarshal(data, &example) != nil || len(bytes.TrimSpace(example.Messages)) == 0 {
+		return err
+	}
+	return v.ValidateJSON(example.Messages)
 }
 
 func validateTopology(graph map[string][]string, root string) error {

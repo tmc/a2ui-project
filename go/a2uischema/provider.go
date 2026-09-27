@@ -33,16 +33,7 @@ func (p FileSystemCatalogProvider) Load() ([]byte, error) {
 	return os.ReadFile(string(p))
 }
 
-// BasicCatalogProvider returns the embedded basic catalog provider for a version.
-func BasicCatalogProvider(version Version) (CatalogProvider, error) {
-	switch version {
-	case Version09:
-		return StaticCatalogProvider{Data: basicCatalogV09}, nil
-	case Version091:
-		return StaticCatalogProvider{Data: basicCatalogV091}, nil
-	case Version1:
-		return StaticCatalogProvider{Data: basicCatalogV1}, nil
-	default:
-		return nil, fmt.Errorf("a2uischema: unsupported version %q", version)
-	}
+// BasicCatalogProvider returns the embedded basic catalog provider.
+func BasicCatalogProvider() CatalogProvider {
+	return StaticCatalogProvider{Data: basicCatalog}
 }

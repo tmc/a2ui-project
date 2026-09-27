@@ -145,9 +145,9 @@ func a2aConformanceCases() []conformanceCase {
 		{
 			Name:   "test_get_extension_minimal",
 			Action: "get_extension",
-			Args:   map[string]any{"version": "0.8"},
+			Args:   map[string]any{"version": "1.0"},
 			Expect: map[string]any{
-				"uri":    "https://a2ui.org/a2a-extension/a2ui/v0.8",
+				"uri":    "https://a2ui.org/a2a-extension/a2ui/v1.0",
 				"params": nil,
 			},
 		},
@@ -155,11 +155,11 @@ func a2aConformanceCases() []conformanceCase {
 			Name:   "test_get_extension_with_inline",
 			Action: "get_extension",
 			Args: map[string]any{
-				"version":                 "0.8",
+				"version":                 "1.0",
 				"accepts_inline_catalogs": true,
 			},
 			Expect: map[string]any{
-				"uri":    "https://a2ui.org/a2a-extension/a2ui/v0.8",
+				"uri":    "https://a2ui.org/a2a-extension/a2ui/v1.0",
 				"params": map[string]any{"acceptsInlineCatalogs": true},
 			},
 		},
@@ -167,11 +167,11 @@ func a2aConformanceCases() []conformanceCase {
 			Name:   "test_get_extension_with_catalogs",
 			Action: "get_extension",
 			Args: map[string]any{
-				"version":               "0.8",
+				"version":               "1.0",
 				"supported_catalog_ids": []any{"a", "b", "c"},
 			},
 			Expect: map[string]any{
-				"uri":    "https://a2ui.org/a2a-extension/a2ui/v0.8",
+				"uri":    "https://a2ui.org/a2a-extension/a2ui/v1.0",
 				"params": map[string]any{"supportedCatalogIds": []any{"a", "b", "c"}},
 			},
 		},
@@ -179,12 +179,12 @@ func a2aConformanceCases() []conformanceCase {
 			Name:   "test_try_activate_success",
 			Action: "try_activate",
 			Args: map[string]any{
-				"requested":  []any{"https://a2ui.org/a2a-extension/a2ui/v0.8"},
-				"advertised": []any{"https://a2ui.org/a2a-extension/a2ui/v0.8"},
+				"requested":  []any{"https://a2ui.org/a2a-extension/a2ui/v1.0"},
+				"advertised": []any{"https://a2ui.org/a2a-extension/a2ui/v1.0"},
 			},
 			Expect: map[string]any{
-				"activated": "https://a2ui.org/a2a-extension/a2ui/v0.8",
-				"version":   "0.8",
+				"activated": "https://a2ui.org/a2a-extension/a2ui/v1.0",
+				"version":   "1.0",
 			},
 		},
 		{
@@ -192,7 +192,7 @@ func a2aConformanceCases() []conformanceCase {
 			Action: "try_activate",
 			Args: map[string]any{
 				"requested":  []any{},
-				"advertised": []any{"https://a2ui.org/a2a-extension/a2ui/v0.8"},
+				"advertised": []any{"https://a2ui.org/a2a-extension/a2ui/v1.0"},
 			},
 			Expect: map[string]any{"activated": nil},
 		},
@@ -201,13 +201,13 @@ func a2aConformanceCases() []conformanceCase {
 			Action: "select_newest",
 			Args: map[string]any{
 				"requested": []any{
-					"https://a2ui.org/a2a-extension/a2ui/v0.1.0",
+					"https://a2ui.org/a2a-extension/a2ui/v1.0.0",
 					"https://a2ui.org/a2a-extension/a2ui/v1.2.0",
-					"https://a2ui.org/a2a-extension/a2ui/v0.8.0",
+					"https://a2ui.org/a2a-extension/a2ui/v1.1.0",
 					"https://a2ui.org/a2a-extension/a2ui/v1.10.0",
 				},
 				"advertised": []any{
-					"https://a2ui.org/a2a-extension/a2ui/v0.1.0",
+					"https://a2ui.org/a2a-extension/a2ui/v1.0.0",
 					"https://a2ui.org/a2a-extension/a2ui/v1.2.0",
 					"https://a2ui.org/a2a-extension/a2ui/v1.10.0",
 					"https://a2ui.org/a2a-extension/a2ui/v2.0.0",

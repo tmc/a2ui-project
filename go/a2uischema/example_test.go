@@ -5,16 +5,11 @@ import (
 	"strings"
 
 	"github.com/a2ui-project/a2ui/go/a2ui"
-	"github.com/a2ui-project/a2ui/go/a2ui/v09"
 	"github.com/a2ui-project/a2ui/go/a2uischema"
 )
 
-func newManager(version a2uischema.Version) *a2uischema.SchemaManager {
-	basic, err := a2uischema.BasicCatalogConfig(version)
-	if err != nil {
-		panic(err)
-	}
-	manager, err := a2uischema.NewSchemaManager(version, []a2uischema.CatalogConfig{basic}, false)
+func newManager() *a2uischema.SchemaManager {
+	manager, err := a2uischema.NewSchemaManager([]a2uischema.CatalogConfig{a2uischema.BasicCatalogConfig()}, false)
 	if err != nil {
 		panic(err)
 	}
@@ -22,7 +17,7 @@ func newManager(version a2uischema.Version) *a2uischema.SchemaManager {
 }
 
 func ExampleSchemaManager_GenerateSystemPrompt() {
-	manager := newManager(a2uischema.Version1)
+	manager := newManager()
 	prompt, err := manager.GenerateSystemPrompt(a2uischema.PromptOptions{
 		RoleDescription: "You are a helpful assistant.",
 		UIDescription:   "Show contact cards.",
@@ -39,7 +34,7 @@ func ExampleSchemaManager_GenerateSystemPrompt() {
 }
 
 func ExampleSchemaManager_SelectedCatalog() {
-	manager := newManager(a2uischema.Version1)
+	manager := newManager()
 	caps := &a2ui.RendererCapabilities{V1: &a2ui.RendererCapabilitiesV1{
 		SupportedCatalogIDs: []string{"https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"},
 	}}
@@ -47,24 +42,17 @@ func ExampleSchemaManager_SelectedCatalog() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(catalog.Version)
-	// Output:
-	// v1.0
-}
-
-func ExampleSchemaManager_SelectedCatalogV09() {
-	manager := newManager(a2uischema.Version09)
-	catalog, err := manager.SelectedCatalogV09(&v09.ClientCapabilities{}, nil, nil)
+	id, err := catalog.ID()
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(catalog.Version)
+	fmt.Println(id)
 	// Output:
-	// v0.9
+	// https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json
 }
 
 func ExampleValidator_ValidateMessages() {
-	catalog, err := newManager(a2uischema.Version1).SelectedCatalog(nil, nil, nil)
+	catalog, err := newManager().SelectedCatalog(nil, nil, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -78,19 +66,4 @@ func ExampleValidator_ValidateMessages() {
 	// Output:
 	// <nil>
 	// a2uischema: message[0]: deleteSurface.surfaceId is required
-}
-
-func ExampleValidator_ValidateMessagesV09() {
-	catalog, err := newManager(a2uischema.Version09).SelectedCatalog(nil, nil, nil)
-	if err != nil {
-		panic(err)
-	}
-	validator := catalog.Validator()
-	msgs, err := validator.ParseMessagesV09([]byte(`{"version":"v0.9","deleteSurface":{"surfaceId":"s1"}}`))
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(validator.ValidateMessagesV09(msgs))
-	// Output:
-	// <nil>
 }

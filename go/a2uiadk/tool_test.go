@@ -14,8 +14,8 @@ func TestSendA2UIJSONToClientToolRun(t *testing.T) {
 	tc := &ToolContext{}
 	result := tool.Run(map[string]any{
 		A2UIJSONArgName: `[
-			{"version":"v0.9","createSurface":{"surfaceId":"dummy-surface","catalogId":"https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"}},
-			{"version":"v0.9","updateComponents":{"surfaceId":"dummy-surface","components":[{"component":"Text","id":"root","text":"hello"}]}}
+			{"version":"v1.0","createSurface":{"surfaceId":"dummy-surface","catalogId":"https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"}},
+			{"version":"v1.0","updateComponents":{"surfaceId":"dummy-surface","components":[{"component":"Text","id":"root","text":"hello"}]}}
 		]`,
 	}, tc)
 	if _, ok := result[ToolErrorKey]; ok {
@@ -77,11 +77,7 @@ func TestProcessInstructions(t *testing.T) {
 
 func testCatalog(t *testing.T) *a2uischema.Catalog {
 	t.Helper()
-	cfg, err := a2uischema.BasicCatalogConfig(a2uischema.Version09)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager, err := a2uischema.NewSchemaManager(a2uischema.Version09, []a2uischema.CatalogConfig{cfg}, false)
+	manager, err := a2uischema.NewSchemaManager([]a2uischema.CatalogConfig{a2uischema.BasicCatalogConfig()}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

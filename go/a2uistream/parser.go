@@ -19,13 +19,14 @@ const (
 // A part contains either conversational text, parsed A2UI messages, or both
 // (text preceding a JSON block and the messages extracted from it).
 //
-// Payload holds every A2UI message, whatever its protocol version.
-// Messages holds the 1.x messages among them, decoded; for v0.9 messages
-// use [ResponsePartV09] via [ParserV09], [ReaderV09] or [ParseAndValidateV09].
+// Payload holds the raw JSON object of every A2UI message found, and
+// Messages holds those that decode as A2UI 1.x messages. A message is in
+// Payload but not in Messages if it is malformed, is for another
+// protocol version, or uses features this package does not know.
 type ResponsePart struct {
 	Text     string              // conversational text
-	Messages []a2ui.AgentMessage // A2UI 1.x messages (nil if none)
-	Payload  []map[string]any    // A2UI messages of any version (nil if text-only)
+	Messages []a2ui.AgentMessage // decoded A2UI messages (nil if none)
+	Payload  []map[string]any    // raw A2UI messages (nil if text-only)
 }
 
 // Parser incrementally parses A2UI messages from text chunks.
@@ -387,11 +388,6 @@ func parseMessage(obj string) (a2ui.AgentMessage, bool) {
 // isV1 reports whether version is a 1.x protocol version.
 func isV1(version string) bool {
 	return strings.HasPrefix(version, "v1.")
-}
-
-// isV09 reports whether version is v0.9 or a v0.9.x revision.
-func isV09(version string) bool {
-	return version == "v0.9" || strings.HasPrefix(version, "v0.9.")
 }
 
 func parsePayloadObject(obj string) (map[string]any, bool) {

@@ -1,7 +1,6 @@
 package a2uischema
 
 import (
-	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -9,95 +8,46 @@ import (
 	"testing"
 
 	"github.com/a2ui-project/a2ui/go/a2ui"
-	v09 "github.com/a2ui-project/a2ui/go/a2ui/v09"
-	a2uiv091 "github.com/a2ui-project/a2ui/go/a2ui/v091"
 	"github.com/a2ui-project/a2ui/go/a2uibuild"
 	"github.com/a2ui-project/a2ui/go/a2uistream"
 )
 
+const basicCatalogID = "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"
+
 func TestSchemaManagerGenerateSystemPrompt(t *testing.T) {
-	basic, err := BasicCatalogConfig(Version09)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager, err := NewSchemaManager(Version09, []CatalogConfig{basic}, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	prompt, err := manager.GenerateSystemPrompt(PromptOptions{RoleDescription: "role", IncludeSchema: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(prompt, A2UISchemaBlockStart) {
-		t.Fatal("expected schema block")
-	}
-	if !strings.Contains(prompt, "catalogs/basic/catalog.json") {
-		t.Fatal("expected basic catalog schema in prompt")
-	}
-}
-
-func TestSchemaManagerGenerateSystemPromptVersioned(t *testing.T) {
-	basic, err := BasicCatalogConfig(Version1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager, err := NewSchemaManager(Version1, []CatalogConfig{basic}, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	manager := mustBasicManager(t)
 	caps := &a2ui.RendererCapabilities{V1: &a2ui.RendererCapabilitiesV1{
-		SupportedCatalogIDs: []string{"https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"},
+		SupportedCatalogIDs: []string{basicCatalogID},
 	}}
-	prompt, err := manager.GenerateSystemPrompt(PromptOptions{RoleDescription: "role", Capabilities: caps, IncludeSchema: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(prompt, A2UISchemaBlockStart) {
-		t.Fatal("expected schema block")
-	}
-	if !strings.Contains(prompt, "v1_0/catalogs/basic/catalog.json") {
-		t.Fatal("expected v1.0 basic catalog schema in prompt")
-	}
-}
-
-func TestSchemaManagerGenerateSystemPromptV091(t *testing.T) {
-	basic, err := BasicCatalogConfig(Version091)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager, err := NewSchemaManager(Version091, []CatalogConfig{basic}, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	prompt, err := manager.GenerateSystemPrompt(PromptOptions{RoleDescription: "role", IncludeSchema: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(prompt, A2UISchemaBlockStart) {
-		t.Fatal("expected schema block")
-	}
-	if !strings.Contains(prompt, "v0_9/catalogs/basic/catalog.json") {
-		t.Fatal("expected v0.9 wire catalog schema in prompt")
+	for _, opts := range []PromptOptions{
+		{RoleDescription: "role", IncludeSchema: true},
+		{RoleDescription: "role", Capabilities: caps, IncludeSchema: true},
+	} {
+		prompt, err := manager.GenerateSystemPrompt(opts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(prompt, A2UISchemaBlockStart) {
+			t.Fatal("expected schema block")
+		}
+		if !strings.Contains(prompt, "v1_0/catalogs/basic/catalog.json") {
+			t.Fatal("expected basic catalog schema in prompt")
+		}
 	}
 }
 
-func TestValidatorAcceptsV091WireVersion(t *testing.T) {
-	validator := mustBasicValidatorV091(t)
-	msg := v09.ServerMessage{
-		Version: v09.Version,
-		CreateSurface: &v09.CreateSurface{
-			SurfaceID: "s1",
-			CatalogID: "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json",
-		},
-	}
-	if err := validator.ValidateMessagesV09([]v09.ServerMessage{msg}); err != nil {
-		t.Fatal(err)
+func TestSchemaManagerRejectsUnsupportedCatalog(t *testing.T) {
+	caps := &a2ui.RendererCapabilities{V1: &a2ui.RendererCapabilitiesV1{
+		SupportedCatalogIDs: []string{"https://example.com/other.json"},
+	}}
+	if _, err := mustBasicManager(t).SelectedCatalog(caps, nil, nil); err == nil {
+		t.Fatal("SelectedCatalog with no common catalog succeeded")
 	}
 }
 
 func TestValidatorAcceptsValidSurfaceMessages(t *testing.T) {
-	validator := mustBasicValidatorV1(t)
-	surface := a2uibuild.NewSurface("contact", "https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json").
+	validator := mustBasicValidator(t)
+	surface := a2uibuild.NewSurface("contact", basicCatalogID).
 		Add(a2uibuild.Column("root", a2uibuild.Children("greeting"))).
 		Add(a2uibuild.Text("greeting", a2ui.StringLiteral("Hello, world!")))
 	if err := validator.ValidateMessages(surface.Messages()); err != nil {
@@ -105,14 +55,14 @@ func TestValidatorAcceptsValidSurfaceMessages(t *testing.T) {
 	}
 }
 
-func TestValidatorAcceptsV1Examples(t *testing.T) {
-	validator := mustBasicValidatorV1(t)
+func TestValidatorAcceptsExamples(t *testing.T) {
+	validator := mustBasicValidator(t)
 	paths, err := filepath.Glob("testdata/v1_0/basic/examples/*.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(paths) == 0 {
-		t.Fatal("no v1.0 examples found")
+		t.Fatal("no examples found")
 	}
 	for _, path := range paths {
 		t.Run(filepath.Base(path), func(t *testing.T) {
@@ -127,8 +77,8 @@ func TestValidatorAcceptsV1Examples(t *testing.T) {
 	}
 }
 
-func TestValidatorAcceptsV1AgentFunctionResponseNull(t *testing.T) {
-	validator := mustBasicValidatorV1(t)
+func TestValidatorAcceptsAgentFunctionResponseNull(t *testing.T) {
+	validator := mustBasicValidator(t)
 	msg := a2ui.AgentMessage{
 		Version:               a2ui.Version,
 		AgentFunctionResponse: &a2ui.FunctionResponse{FunctionCallID: "call-1"},
@@ -138,178 +88,63 @@ func TestValidatorAcceptsV1AgentFunctionResponseNull(t *testing.T) {
 	}
 }
 
-func TestValidatorRejectsDuplicateIDs(t *testing.T) {
-	validator := mustBasicValidator(t)
-	msg := v09.ServerMessage{
-		Version: v09.Version,
-		UpdateComponents: &v09.UpdateComponents{
-			SurfaceID: "s1",
-			Components: []v09.Component{
-				column09("root", children09("dup")),
-				text09("dup", v09.StringLiteral("one")),
-				text09("dup", v09.StringLiteral("two")),
-			},
-		},
-	}
-	err := validator.ValidateMessagesV09([]v09.ServerMessage{msg})
+func TestValidatorRejectsOtherVersions(t *testing.T) {
+	err := mustBasicValidator(t).ValidateJSON([]byte(`{"version":"v0.9","deleteSurface":{"surfaceId":"s1"}}`))
 	if err == nil {
-		t.Fatal("expected validation error, got nil")
+		t.Fatal("v0.9 message accepted")
 	}
-	assertValidationError(t, err, ValidationDuplicateComponent, "dup")
 }
 
-func TestValidatorRejectsOrphanedComponent(t *testing.T) {
-	validator := mustBasicValidator(t)
-	msg := v09.ServerMessage{
-		Version: v09.Version,
-		UpdateComponents: &v09.UpdateComponents{
-			SurfaceID: "s1",
-			Components: []v09.Component{
-				column09("root", children09("greeting")),
-				text09("greeting", v09.StringLiteral("hello")),
-				text09("extra", v09.StringLiteral("orphan")),
-			},
+func TestValidatorStructuredErrors(t *testing.T) {
+	tests := []struct {
+		name      string
+		msgs      string
+		code      ValidationCode
+		component string
+	}{
+		{
+			name:      "duplicate id",
+			msgs:      `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["dup"]},{"id":"dup","component":"Text","text":"one"},{"id":"dup","component":"Text","text":"two"}]}}`,
+			code:      ValidationDuplicateComponent,
+			component: "dup",
+		},
+		{
+			name: "unknown function",
+			msgs: `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Button","child":"label","action":{"functionCall":{"call":"definitelyUnknown"}}},{"id":"label","component":"Text","text":"Run"}]}}`,
+			code: ValidationUnknownFunction,
+		},
+		{
+			name: "invalid path",
+			msgs: `{"version":"v1.0","updateDataModel":{"surfaceId":"s1","path":"/bad~path","value":"value"}}`,
+			code: ValidationInvalidPath,
+		},
+		{
+			name: "orphan",
+			msgs: `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["greeting"]},{"id":"greeting","component":"Text","text":"hello"},{"id":"extra","component":"Text","text":"orphan"}]}}`,
+			code: ValidationOrphanedComponent,
 		},
 	}
-	err := validator.ValidateMessagesV09([]v09.ServerMessage{msg})
-	if err == nil {
-		t.Fatal("expected validation error, got nil")
-	}
-	assertValidationError(t, err, ValidationOrphanedComponent, "")
-}
-
-func TestValidatorRejectsUnknownFunction(t *testing.T) {
 	validator := mustBasicValidator(t)
-	msg := v09.ServerMessage{
-		Version: v09.Version,
-		UpdateComponents: &v09.UpdateComponents{
-			SurfaceID: "s1",
-			Components: []v09.Component{
-				button09("root",
-					v09.Action{
-						FunctionCall: &v09.FunctionCall{Call: "definitelyUnknown"},
-					},
-					"label",
-				),
-				text09("label", v09.StringLiteral("Run")),
-			},
-		},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateJSON([]byte(tt.msgs))
+			if err == nil {
+				t.Fatal("expected validation error, got nil")
+			}
+			assertValidationError(t, err, tt.code, tt.component)
+		})
 	}
-	err := validator.ValidateMessagesV09([]v09.ServerMessage{msg})
-	if err == nil {
-		t.Fatal("expected validation error, got nil")
-	}
-	assertValidationError(t, err, ValidationUnknownFunction, "")
-}
-
-func TestValidatorReportsStructuredInvalidPath(t *testing.T) {
-	validator := mustBasicValidator(t)
-	msg := v09.ServerMessage{
-		Version: v09.Version,
-		UpdateDataModel: &v09.UpdateDataModel{
-			SurfaceID: "s1",
-			Path:      "/bad~path",
-			Value:     "value",
-		},
-	}
-	err := validator.ValidateMessagesV09([]v09.ServerMessage{msg})
-	if err == nil {
-		t.Fatal("expected validation error, got nil")
-	}
-	assertValidationError(t, err, ValidationInvalidPath, "")
 }
 
 func TestParseAndValidate(t *testing.T) {
-	validator := mustBasicValidator(t)
-	msg := v09.ServerMessage{
-		Version: v09.Version,
-		UpdateComponents: &v09.UpdateComponents{
-			SurfaceID: "s1",
-			Components: []v09.Component{
-				text09("bad", v09.StringLiteral("missing root")),
-			},
-		},
-	}
-	data, err := json.Marshal(msg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a2uistream.ParseAndValidateV09(string(data), validator); err == nil {
+	const bad = `{"version":"v1.0","createSurface":{"surfaceId":"s1","catalogId":"https://example.com/other.json"}}`
+	if _, err := a2uistream.ParseAndValidate(bad, mustBasicValidator(t)); err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
 }
 
-func mustBasicValidator(t *testing.T) *Validator {
-	t.Helper()
-	basic, err := BasicCatalogConfig(Version09)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager, err := NewSchemaManager(Version09, []CatalogConfig{basic}, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	catalog, err := manager.SelectedCatalog(nil, nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return catalog.Validator()
-}
-
-func mustBasicValidatorV1(t *testing.T) *Validator {
-	t.Helper()
-	basic, err := BasicCatalogConfig(Version1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager, err := NewSchemaManager(Version1, []CatalogConfig{basic}, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	catalog, err := manager.SelectedCatalog(nil, nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return catalog.Validator()
-}
-
-func mustBasicValidatorV091(t *testing.T) *Validator {
-	t.Helper()
-	basic, err := BasicCatalogConfig(Version091)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manager, err := NewSchemaManager(Version091, []CatalogConfig{basic}, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	catalog, err := manager.SelectedCatalog(nil, nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return catalog.Validator()
-}
-
-func ptr[T any](v T) *T {
-	return &v
-}
-
-func assertValidationError(t *testing.T, err error, code ValidationCode, component string) {
-	t.Helper()
-	var validationErr *ValidationError
-	if !errors.As(err, &validationErr) {
-		t.Fatalf("errors.As(*ValidationError) = false for %v", err)
-	}
-	if validationErr.Code != code {
-		t.Fatalf("ValidationError.Code = %q, want %q", validationErr.Code, code)
-	}
-	if component != "" && validationErr.Component != component {
-		t.Fatalf("ValidationError.Component = %q, want %q", validationErr.Component, component)
-	}
-}
-
-func TestValidatorV1ComponentRefs(t *testing.T) {
-	validator := mustBasicValidatorV1(t)
+func TestValidatorComponentRefs(t *testing.T) {
+	validator := mustBasicValidator(t)
 	const (
 		create  = `{"version":"v1.0","createSurface":{"surfaceId":"s1"}}`
 		root    = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Card","child":"body"}]}}`
@@ -336,73 +171,34 @@ func TestValidatorV1ComponentRefs(t *testing.T) {
 	}
 }
 
-func column09(id string, children v09.ChildList) v09.Component {
-	return v09.Component{ID: id, Column: &v09.ColumnComponent{Children: children}}
+func mustBasicManager(t *testing.T) *SchemaManager {
+	t.Helper()
+	manager, err := NewSchemaManager([]CatalogConfig{BasicCatalogConfig()}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return manager
 }
 
-func text09(id string, text v09.DynamicString) v09.Component {
-	return v09.Component{ID: id, Text: &v09.TextComponent{Text: text}}
+func mustBasicValidator(t *testing.T) *Validator {
+	t.Helper()
+	catalog, err := mustBasicManager(t).SelectedCatalog(nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return catalog.Validator()
 }
 
-func button09(id string, action v09.Action, child string) v09.Component {
-	return v09.Component{ID: id, Button: &v09.ButtonComponent{Action: action, Child: child}}
-}
-
-func children09(ids ...string) v09.ChildList {
-	return v09.ChildList{IDs: ids}
-}
-
-func TestVersionMismatch(t *testing.T) {
-	v09Msgs := []v09.ServerMessage{{Version: v09.Version, DeleteSurface: &v09.DeleteSurface{SurfaceID: "s1"}}}
-	v1Msgs := []a2ui.AgentMessage{{Version: a2ui.Version, DeleteSurface: &a2ui.DeleteSurface{SurfaceID: "s1"}}}
-	if err := mustBasicValidator(t).ValidateMessages(v1Msgs); err == nil {
-		t.Error("v0.9 catalog: ValidateMessages(1.x) succeeded")
+func assertValidationError(t *testing.T, err error, code ValidationCode, component string) {
+	t.Helper()
+	var validationErr *ValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("errors.As(*ValidationError) = false for %v", err)
 	}
-	if err := mustBasicValidatorV1(t).ValidateMessagesV09(v09Msgs); err == nil {
-		t.Error("1.x catalog: ValidateMessagesV09 succeeded")
+	if validationErr.Code != code {
+		t.Fatalf("ValidationError.Code = %q, want %q", validationErr.Code, code)
 	}
-	if err := NewValidator(nil).ValidateMessagesV09(v09Msgs); err == nil {
-		t.Error("nil catalog: ValidateMessagesV09 succeeded")
-	}
-
-	managers := make(map[Version]*SchemaManager)
-	for _, version := range []Version{Version09, Version091, Version1} {
-		basic, err := BasicCatalogConfig(version)
-		if err != nil {
-			t.Fatal(err)
-		}
-		managers[version], err = NewSchemaManager(version, []CatalogConfig{basic}, false)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-	caps := &a2ui.RendererCapabilities{}
-	caps09 := &v09.ClientCapabilities{}
-	caps091 := &a2uiv091.ClientCapabilities{}
-	tests := []struct {
-		name    string
-		version Version
-		opts    PromptOptions
-		wantErr bool
-	}{
-		{"v0.9 default", Version09, PromptOptions{}, false},
-		{"v0.9.1 default", Version091, PromptOptions{}, false},
-		{"1.x default", Version1, PromptOptions{}, false},
-		{"1.x caps", Version1, PromptOptions{Capabilities: caps}, false},
-		{"v0.9 caps", Version09, PromptOptions{CapabilitiesV09: caps09}, false},
-		{"v0.9 caps on v0.9.1", Version091, PromptOptions{CapabilitiesV09: caps09}, false},
-		{"v0.9.1 caps", Version091, PromptOptions{CapabilitiesV091: caps091}, false},
-		{"1.x caps on v0.9", Version09, PromptOptions{Capabilities: caps}, true},
-		{"v0.9 caps on 1.x", Version1, PromptOptions{CapabilitiesV09: caps09}, true},
-		{"v0.9.1 caps on v0.9", Version09, PromptOptions{CapabilitiesV091: caps091}, true},
-		{"two caps", Version1, PromptOptions{Capabilities: caps, CapabilitiesV09: caps09}, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := managers[tt.version].GenerateSystemPrompt(tt.opts)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("GenerateSystemPrompt: err = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
+	if component != "" && validationErr.Component != component {
+		t.Fatalf("ValidationError.Component = %q, want %q", validationErr.Component, component)
 	}
 }

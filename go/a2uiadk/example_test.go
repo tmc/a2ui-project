@@ -8,15 +8,14 @@ import (
 )
 
 func ExampleSendA2UIJSONToClientTool_Run() {
-	cfg, _ := a2uischema.BasicCatalogConfig(a2uischema.Version09)
-	manager, _ := a2uischema.NewSchemaManager(a2uischema.Version09, []a2uischema.CatalogConfig{cfg}, false)
+	manager, _ := a2uischema.NewSchemaManager([]a2uischema.CatalogConfig{a2uischema.BasicCatalogConfig()}, false)
 	catalog, _ := manager.SelectedCatalog(nil, nil, nil)
 	tool := a2uiadk.NewSendA2UIJSONToClientTool(catalog.Validator())
 
 	result := tool.Run(map[string]any{
 		a2uiadk.A2UIJSONArgName: `[
-			{"version":"v0.9","createSurface":{"surfaceId":"demo","catalogId":"https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json"}},
-			{"version":"v0.9","updateComponents":{"surfaceId":"demo","components":[{"component":"Text","id":"root","text":"hello"}]}}
+			{"version":"v1.0","createSurface":{"surfaceId":"demo","catalogId":"https://a2ui.org/specification/v1_0/catalogs/basic/catalog.json"}},
+			{"version":"v1.0","updateComponents":{"surfaceId":"demo","components":[{"component":"Text","id":"root","text":"hello"}]}}
 		]`,
 	}, nil)
 	_, ok := result[a2uiadk.ValidatedJSONKey]

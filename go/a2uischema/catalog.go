@@ -26,25 +26,18 @@ func CatalogConfigFromPath(name, catalogPath, examplesPath string) CatalogConfig
 	}
 }
 
-// BasicCatalogConfig returns a [CatalogConfig] backed by embedded schemas.
-func BasicCatalogConfig(version Version) (CatalogConfig, error) {
-	provider, err := BasicCatalogProvider(version)
-	if err != nil {
-		return CatalogConfig{}, err
-	}
+// BasicCatalogConfig returns a [CatalogConfig] for the embedded basic catalog.
+func BasicCatalogConfig() CatalogConfig {
 	return CatalogConfig{
 		Name:     "basic",
-		Provider: provider,
-	}, nil
+		Provider: BasicCatalogProvider(),
+	}
 }
 
 // Catalog is a processed catalog plus the schemas needed to reason about it.
 type Catalog struct {
-	Version Version
-	Name    string
-	// MessageSchema is the schema for agent messages: agent_to_renderer.json
-	// for 1.x, server_to_client.json for v0.9 and v0.9.1.
-	MessageSchema     map[string]any
+	Name              string
+	MessageSchema     map[string]any // agent_to_renderer.json
 	CommonTypesSchema map[string]any
 	CatalogSchema     map[string]any
 }
@@ -73,7 +66,6 @@ func (c *Catalog) WithPruning(allowedComponents, allowedMessages []string) (*Cat
 		return nil, err
 	}
 	out := &Catalog{
-		Version:           c.Version,
 		Name:              c.Name,
 		MessageSchema:     messageSchema,
 		CommonTypesSchema: commonSchema,
@@ -163,10 +155,6 @@ func (c *Catalog) RenderAsLLMInstructions() (string, error) {
 	}
 	b.WriteString("\n\n### Catalog Schema:\n")
 	b.Write(catalogSchema)
-	if rules, ok := embeddedCatalogRules(c); ok && strings.TrimSpace(rules) != "" {
-		b.WriteString("\n\n### Catalog Rules:\n")
-		b.WriteString(strings.TrimSpace(rules))
-	}
 	b.WriteString("\n")
 	b.WriteString(A2UISchemaBlockEnd)
 	return b.String(), nil
@@ -322,7 +310,7 @@ func normalizeGlobPattern(pattern string) string {
 	return strings.ReplaceAll(pattern, "[!", "[^")
 }
 
-func newCatalog(version Version, name string, messageSchema, commonTypesSchema, catalogSchema []byte) (*Catalog, error) {
+func newCatalog(name string, messageSchema, commonTypesSchema, catalogSchema []byte) (*Catalog, error) {
 	messageMap, err := unmarshalJSONMap(messageSchema)
 	if err != nil {
 		return nil, fmt.Errorf("a2uischema: decode message schema: %w", err)
@@ -336,29 +324,11 @@ func newCatalog(version Version, name string, messageSchema, commonTypesSchema, 
 		return nil, fmt.Errorf("a2uischema: decode catalog schema: %w", err)
 	}
 	return &Catalog{
-		Version:           version,
 		Name:              name,
 		MessageSchema:     messageMap,
 		CommonTypesSchema: commonMap,
 		CatalogSchema:     catalogMap,
 	}, nil
-}
-
-func embeddedCatalogRules(c *Catalog) (string, bool) {
-	if c == nil {
-		return "", false
-	}
-	id, err := c.ID()
-	if err != nil {
-		return "", false
-	}
-	switch {
-	case c.Version == Version09 && id == "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json":
-		return basicCatalogRulesV09, true
-	case c.Version == Version091 && id == "https://a2ui.org/specification/v0_9/catalogs/basic/catalog.json":
-		return basicCatalogRulesV091, true
-	}
-	return "", false
 }
 
 func marshalIndented(v any) ([]byte, error) {

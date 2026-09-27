@@ -39,7 +39,6 @@ func main() {
 	schemas := flag.String("schemas", "", "path to JSON schemas directory")
 	catalog := flag.String("catalog", "", "path to the basic catalog (default: found near -schemas)")
 	out := flag.String("out", "", "output directory")
-	pkg := flag.String("pkg", "a2ui", "Go package name for generated type files")
 	module := flag.String("module", "", "Go module path for generated imports (default: module containing -out)")
 	a2uiDir := flag.String("a2ui-dir", "a2ui", "directory for generated a2ui package, relative to -out")
 	buildDir := flag.String("build-dir", "a2uibuild", "directory for generated a2uibuild package, relative to -out")
@@ -48,7 +47,6 @@ func main() {
 	sdk := flag.Bool("sdk", false, "generate the complete Go SDK, including static support files")
 	specRoot := flag.String("spec-root", "", "A2UI specification root for -sdk mode (default: inferred from generator checkout)")
 	sdkRoot := flag.String("sdk-root", "", "Go SDK source root for -sdk mode (default: inferred from generator)")
-	builders := flag.Bool("builders", false, "also generate the a2uibuild builders for this package")
 	flag.Parse()
 	if *out == "" || (!*sdk && *schemas == "") {
 		flag.Usage()
@@ -65,12 +63,12 @@ func main() {
 		return
 	}
 
-	if err := generateFromSchemas(*schemas, *catalog, *out, *pkg, *module, *a2uiDir, *buildDir, *a2uiImport, *builders); err != nil {
+	if err := generateFromSchemas(*schemas, *catalog, *out, *module, *a2uiDir, *buildDir, *a2uiImport); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func generateFromSchemas(schemas, catalogPath, out, pkg, module, a2uiDir, buildDir, a2uiImport string, builders bool) error {
+func generateFromSchemas(schemas, catalogPath, out, module, a2uiDir, buildDir, a2uiImport string) error {
 	if catalogPath == "" {
 		path, err := findBasicCatalog(schemas)
 		if err != nil {
@@ -94,7 +92,7 @@ func generateFromSchemas(schemas, catalogPath, out, pkg, module, a2uiDir, buildD
 	if err != nil {
 		return err
 	}
-	outConfig, err := resolveOutputConfig(out, module, a2uiDir, buildDir, a2uiImport, pkg)
+	outConfig, err := resolveOutputConfig(out, module, a2uiDir, buildDir, a2uiImport)
 	if err != nil {
 		return err
 	}
@@ -104,9 +102,7 @@ func generateFromSchemas(schemas, catalogPath, out, pkg, module, a2uiDir, buildD
 		return err
 	}
 	data.Wrappers = wrappers
-	data.Pkg = pkg
 	data.A2UIImport = outConfig.A2UIImport
-	data.VersionImport = outConfig.VersionImport
 
 	ar := txtar.Parse(templateData)
 
@@ -122,10 +118,6 @@ func generateFromSchemas(schemas, catalogPath, out, pkg, module, a2uiDir, buildD
 
 	for _, f := range ar.Files {
 		name := strings.TrimSpace(f.Name)
-
-		if strings.Contains(name, "builders") && !builders {
-			continue
-		}
 
 		tmpl, err := template.New(name).Funcs(funcMap).Parse(string(f.Data))
 		if err != nil {
@@ -144,9 +136,6 @@ func generateFromSchemas(schemas, catalogPath, out, pkg, module, a2uiDir, buildD
 		outDir := filepath.Join(out, outConfig.A2UIDir)
 		if strings.Contains(name, "builders") {
 			outDir = filepath.Join(out, outConfig.A2UIBuildDir)
-		} else if pkg != "a2ui" {
-			// Type files go into {a2uiDir}/{pkg}/.
-			outDir = filepath.Join(out, outConfig.A2UIDir, pkg)
 		}
 		if err := os.MkdirAll(outDir, 0o755); err != nil {
 			return err
@@ -304,19 +293,16 @@ type TemplateData struct {
 	// field on the wire. It was removed in v1.0.
 	CallReturnType bool
 
-	Pkg           string // Go package name for generated types (default "a2ui")
-	A2UIImport    string // import path for the root a2ui package
-	VersionImport string // import path for the generated version package
+	A2UIImport string // import path for the a2ui package
 }
 
 type outputConfig struct {
-	A2UIDir       string
-	A2UIBuildDir  string
-	A2UIImport    string
-	VersionImport string
+	A2UIDir      string
+	A2UIBuildDir string
+	A2UIImport   string
 }
 
-func resolveOutputConfig(out, module, a2uiDir, buildDir, a2uiImport, pkg string) (outputConfig, error) {
+func resolveOutputConfig(out, module, a2uiDir, buildDir, a2uiImport string) (outputConfig, error) {
 	a2uiDir, err := cleanRelDir("-a2ui-dir", a2uiDir)
 	if err != nil {
 		return outputConfig{}, err
@@ -343,15 +329,10 @@ func resolveOutputConfig(out, module, a2uiDir, buildDir, a2uiImport, pkg string)
 	if err := checkImportPath("-a2ui-import", a2uiImport); err != nil {
 		return outputConfig{}, err
 	}
-	versionImport := a2uiImport
-	if pkg != "a2ui" {
-		versionImport = joinImportPath(a2uiImport, pkg)
-	}
 	return outputConfig{
-		A2UIDir:       a2uiDir,
-		A2UIBuildDir:  buildDir,
-		A2UIImport:    a2uiImport,
-		VersionImport: versionImport,
+		A2UIDir:      a2uiDir,
+		A2UIBuildDir: buildDir,
+		A2UIImport:   a2uiImport,
 	}, nil
 }
 
@@ -482,7 +463,7 @@ func generateSDK(out, module, a2uiDir, buildDir, a2uiImport, specRoot, sdkRoot s
 	if err != nil {
 		return err
 	}
-	outConfig, err := resolveOutputConfig(out, module, a2uiDir, buildDir, a2uiImport, "v09")
+	outConfig, err := resolveOutputConfig(out, module, a2uiDir, buildDir, a2uiImport)
 	if err != nil {
 		return err
 	}
@@ -494,20 +475,16 @@ func generateSDK(out, module, a2uiDir, buildDir, a2uiImport, specRoot, sdkRoot s
 	if err := copyStaticSDK(sdkRoot, specRoot, out, outConfig); err != nil {
 		return err
 	}
-	for _, v := range sdkVersions {
-		if err := generateFromSchemas(
-			filepath.Join(specRoot, v.spec, "json"),
-			filepath.Join(specRoot, "..", v.catalog),
-			out,
-			v.pkg,
-			module,
-			a2uiDir,
-			buildDir,
-			a2uiImport,
-			v.builders,
-		); err != nil {
-			return err
-		}
+	if err := generateFromSchemas(
+		filepath.Join(specRoot, sdkSpec, "json"),
+		filepath.Join(specRoot, "..", sdkCatalog),
+		out,
+		module,
+		a2uiDir,
+		buildDir,
+		a2uiImport,
+	); err != nil {
+		return err
 	}
 
 	if err := rewriteSDKImports(absOut, modulePath, moduleRoot, sourceModule, outConfig); err != nil {
@@ -516,42 +493,37 @@ func generateSDK(out, module, a2uiDir, buildDir, a2uiImport, specRoot, sdkRoot s
 	return gofmtTree(absOut)
 }
 
-// An sdkVersion is a protocol version generated in -sdk mode.
-// The catalog and examples paths are relative to the repository root,
-// the parent of the specification directory.
-type sdkVersion struct {
-	spec     string // specification subdirectory
-	pkg      string // Go package name
-	catalog  string // basic catalog
-	examples string // basic catalog examples
-	builders bool   // source of the a2uibuild builders
-}
-
-var sdkVersions = []sdkVersion{
-	{
-		spec:     "v0_9",
-		pkg:      "v09",
-		catalog:  "specification/v0_9/catalogs/basic/catalog.json",
-		examples: "specification/v0_9/catalogs/basic/examples",
-	},
-	{
-		spec:     "v0_9_1",
-		pkg:      "v091",
-		catalog:  "specification/v0_9_1/catalogs/basic/catalog.json",
-		examples: "specification/v0_9_1/catalogs/basic/examples",
-	},
-	{
-		spec:     "v1_0",
-		pkg:      "a2ui",
-		catalog:  "catalogs/basic/v1/catalog.json",
-		examples: "catalogs/basic/v1/examples",
-		builders: true,
-	},
-}
+// The protocol version generated in -sdk mode. The catalog and examples
+// paths are relative to the repository root, the parent of the
+// specification directory.
+const (
+	sdkSpec     = "v1_0"
+	sdkCatalog  = "catalogs/basic/v1/catalog.json"
+	sdkExamples = "catalogs/basic/v1/examples"
+)
 
 // staleSDKDirs lists version packages that earlier SDKs had and that
-// -sdk mode deletes from the output.
-var staleSDKDirs = []string{"v010", "v10"}
+// -sdk mode removes from the output. See [removeStaleSDKDir].
+var staleSDKDirs = []string{"v09", "v091", "v010", "v10"}
+
+// staleSDKFiles lists the files that earlier SDKs copied into the
+// version packages without a "Code generated" comment.
+var staleSDKFiles = []string{
+	"capabilities.go",
+	"common.go",
+	"common_json.go",
+	"common_test.go",
+	"component.go",
+	"component_test.go",
+	"doc.go",
+	"dynamic.go",
+	"dynamic_json.go",
+	"dynamic_test.go",
+	"example_test.go",
+	"message.go",
+	"message_json.go",
+	"message_test.go",
+}
 
 func inferSDKRoot() (string, error) {
 	_, file, _, ok := runtime.Caller(0)
@@ -561,7 +533,7 @@ func inferSDKRoot() (string, error) {
 	dir := filepath.Dir(file)
 	for {
 		if _, err := os.Stat(filepath.Join(dir, "cmd", "a2uigen")); err == nil {
-			if _, err := os.Stat(filepath.Join(dir, "a2ui", "v09")); err == nil {
+			if _, err := os.Stat(filepath.Join(dir, "a2ui", "message.go")); err == nil {
 				return dir, nil
 			}
 		}
@@ -579,50 +551,33 @@ func copyStaticSDK(sdkRoot, specRoot, out string, cfg outputConfig) error {
 		return err
 	}
 	for _, dir := range staleSDKDirs {
-		if err := os.RemoveAll(filepath.Join(a2uiDir, dir)); err != nil {
+		if err := removeStaleSDKDir(filepath.Join(a2uiDir, dir)); err != nil {
 			return err
 		}
 	}
-	for _, v := range sdkVersions {
-		src := filepath.Join(sdkRoot, "a2ui", v.pkg)
-		dst := filepath.Join(a2uiDir, v.pkg)
-		skip := func(rel string, d fs.DirEntry) bool {
-			base := filepath.Base(rel)
-			if d.IsDir() {
-				return base == "testdata"
-			}
-			return base == "gen.go" || strings.HasPrefix(base, "zz_")
-		}
-		if v.pkg == "a2ui" {
-			// The root package shares its directory with the version
-			// subpackages and, with -a2ui-dir=., with the module root.
-			src, dst = filepath.Join(sdkRoot, "a2ui"), a2uiDir
-			// Only generated files are removed; the files copied from
-			// the SDK overwrite their previous versions, and anything
-			// else, such as a go:generate directive, is left alone.
-			if err := removeGeneratedGoFiles(dst); err != nil {
-				return err
-			}
-			if err := os.RemoveAll(filepath.Join(dst, "testdata", v.spec)); err != nil {
-				return err
-			}
-			skip = func(rel string, d fs.DirEntry) bool {
-				base := filepath.Base(rel)
-				return d.IsDir() || base == "gen.go" || strings.HasPrefix(base, "zz_")
-			}
-		} else if err := os.RemoveAll(dst); err != nil {
-			return err
-		}
-		if err := copyDir(src, dst, skip); err != nil {
-			return err
-		}
-		examples := filepath.Join(dst, "testdata", v.spec, "catalogs", "basic", "examples")
-		if err := os.MkdirAll(examples, 0o755); err != nil {
-			return err
-		}
-		if err := copyDir(filepath.Join(specRoot, "..", v.examples), examples, nil); err != nil {
-			return err
-		}
+
+	// The a2ui package may share its directory with the module root
+	// (-a2ui-dir=.). Only generated files are removed; the files copied
+	// from the SDK overwrite their previous versions, and anything else,
+	// such as a go:generate directive, is left alone.
+	if err := removeGeneratedGoFiles(a2uiDir); err != nil {
+		return err
+	}
+	examples := filepath.Join(a2uiDir, "testdata", sdkSpec, "catalogs", "basic", "examples")
+	if err := os.RemoveAll(filepath.Join(a2uiDir, "testdata", sdkSpec)); err != nil {
+		return err
+	}
+	if err := copyDir(filepath.Join(sdkRoot, "a2ui"), a2uiDir, func(rel string, d fs.DirEntry) bool {
+		base := filepath.Base(rel)
+		return d.IsDir() || base == "gen.go" || strings.HasPrefix(base, "zz_")
+	}); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(examples, 0o755); err != nil {
+		return err
+	}
+	if err := copyDir(filepath.Join(specRoot, "..", sdkExamples), examples, nil); err != nil {
+		return err
 	}
 
 	for _, pkg := range []string{"a2a", "a2uiadk", "a2uibuild", "a2uischema", "a2uistream"} {
@@ -666,6 +621,59 @@ func removeGeneratedGoFiles(dir string) error {
 		}
 	}
 	return nil
+}
+
+// removeStaleSDKDir removes what earlier SDKs generated in dir: its
+// generated Go files, the files listed in [staleSDKFiles], and the basic
+// catalog examples under testdata. It then removes the directories left
+// empty, so that any hand-written file keeps its directory.
+func removeStaleSDKDir(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return nil
+	}
+	if err := removeGeneratedGoFiles(dir); err != nil {
+		return err
+	}
+	for _, name := range staleSDKFiles {
+		if err := os.Remove(filepath.Join(dir, name)); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	examples, err := filepath.Glob(filepath.Join(dir, "testdata", "*", "catalogs", "basic", "examples"))
+	if err != nil {
+		return err
+	}
+	for _, ex := range examples {
+		if err := os.RemoveAll(ex); err != nil {
+			return err
+		}
+	}
+	return removeEmptyDirs(dir)
+}
+
+// removeEmptyDirs removes dir and its subdirectories, deepest first,
+// if they contain no files.
+func removeEmptyDirs(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	n := len(entries)
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		if err := removeEmptyDirs(filepath.Join(dir, e.Name())); err != nil {
+			return err
+		}
+		if _, err := os.Stat(filepath.Join(dir, e.Name())); os.IsNotExist(err) {
+			n--
+		}
+	}
+	if n > 0 {
+		return nil
+	}
+	return os.Remove(dir)
 }
 
 func copyDir(src, dst string, skip func(rel string, d fs.DirEntry) bool) error {
@@ -727,8 +735,6 @@ func rewriteSDKImports(root, modulePath, moduleRoot, sourceModule string, cfg ou
 	}
 
 	replacements := []struct{ old, new string }{
-		{sourceModule + "/a2ui/v091", cfg.A2UIImport + "/v091"},
-		{sourceModule + "/a2ui/v09", cfg.A2UIImport + "/v09"},
 		{sourceModule + "/a2uiadk", adkImport},
 		{sourceModule + "/a2uibuild", buildImport},
 		{sourceModule + "/a2uischema", schemaImport},

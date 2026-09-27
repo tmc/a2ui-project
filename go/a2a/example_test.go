@@ -25,14 +25,14 @@ func ExampleCreateDataPart() {
 }
 
 func ExampleA2UIData() {
-	part, err := a2a.CreateDataPartForVersion(map[string]any{"deleteSurface": map[string]any{"surfaceId": "s1"}}, "v0.9")
+	part, err := a2a.CreateDataPart(map[string]any{"version": "v1.0", "deleteSurface": map[string]any{"surfaceId": "s1"}})
 	if err != nil {
 		panic(err)
 	}
 	data, ok := a2a.A2UIData(part)
 	fmt.Println(part.Metadata[a2a.MIMETypeKey], ok, data["deleteSurface"])
 	// Output:
-	// application/json+a2ui true map[surfaceId:s1]
+	// application/a2ui+json true map[surfaceId:s1]
 }
 
 func ExampleNewAgentExtension() {
@@ -48,14 +48,14 @@ func ExampleNewAgentExtension() {
 
 func ExampleTryActivateExtension() {
 	activated, version, ok := a2a.TryActivateExtension(
-		[]string{"https://a2ui.org/a2a-extension/a2ui/v0.9"},
-		[]string{"https://a2ui.org/a2a-extension/a2ui/v0.9"},
+		[]string{"https://a2ui.org/a2a-extension/a2ui/v1.0"},
+		[]string{"https://a2ui.org/a2a-extension/a2ui/v1.0"},
 	)
 	fmt.Println(activated)
 	fmt.Println(version)
 	fmt.Println(ok)
 	// Output:
-	// https://a2ui.org/a2a-extension/a2ui/v0.9
-	// 0.9
+	// https://a2ui.org/a2a-extension/a2ui/v1.0
+	// 1.0
 	// true
 }
