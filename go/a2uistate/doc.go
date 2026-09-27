@@ -11,10 +11,13 @@
 // evaluates their function calls, including the ${...} expressions of
 // formatString templates. By default it has the functions of the basic
 // catalog, which [BasicFunctions] lists along with how they differ from
-// the web renderers; a renderer adds its own catalog's functions to
-// that map. [Evaluator.Check] evaluates the checks of a component and
-// returns the failures. The Resolve methods of DataModel evaluate with
-// the basic functions and report only whether a value is available.
+// the web renderers. A renderer with other functions adds them to the
+// map that BasicFunctions returns and sets it as [Evaluator.Funcs],
+// which replaces the basic functions when it is not nil.
+// [Evaluator.Check] evaluates the checks of a component and
+// returns the failures. The Resolve methods of DataModel evaluate only
+// the basic functions and drop errors, reporting only whether a value
+// is available.
 //
 // Functions that perform actions, such as openUrl, are not performed:
 // evaluating one for its value fails with [ErrAction]. A renderer

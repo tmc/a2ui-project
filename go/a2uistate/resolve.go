@@ -32,9 +32,9 @@ func ResolvePath(path, scope string) string {
 
 // ResolveValue returns the value of d, resolving data bindings in scope
 // as [ResolvePath] does and evaluating calls to the functions of
-// [BasicFunctions]. It reports false if d is unset, is bound to a
-// missing value or is a function call that fails. Use an [Evaluator]
-// for other functions and for the error.
+// [BasicFunctions] only. It reports false if d is unset, is bound to a
+// missing value or is a function call that fails, and drops the error.
+// Use [Evaluator.ResolveValue] for other functions and for the error.
 func (m *DataModel) ResolveValue(d a2ui.DynamicValue, scope string) (any, bool) {
 	v, err := (&Evaluator{Data: m}).ResolveValue(d, scope)
 	return v, err == nil
@@ -46,8 +46,10 @@ func (m *DataModel) ResolveValue(d a2ui.DynamicValue, scope string) (any, bool) 
 // A2UI protocol specifies: numbers as JavaScript's String does (42,
 // 1.5, 1e+21), booleans to "true" or "false", null to "", and objects
 // and arrays to JSON.
-// ResolveString reports false if d is unset, is bound to a missing
-// value or is a function call that fails.
+// ResolveString evaluates calls to the basic functions only. It reports
+// false if d is unset, is bound to a missing value or is a function call
+// that fails, and drops the error. Use [Evaluator.ResolveString] for
+// other functions and for the error.
 func (m *DataModel) ResolveString(d a2ui.DynamicString, scope string) (string, bool) {
 	s, err := (&Evaluator{Data: m}).ResolveString(d, scope)
 	return s, err == nil
@@ -55,8 +57,9 @@ func (m *DataModel) ResolveString(d a2ui.DynamicString, scope string) (string, b
 
 // ResolveNumber returns the value of d, resolving data bindings in
 // scope as [ResolvePath] does and evaluating calls to the functions of
-// [BasicFunctions]. It reports false if d is unset, is a function call
-// that fails, or is not a number.
+// [BasicFunctions] only. It reports false if d is unset, is a function
+// call that fails, or is not a number, and drops the error. Use
+// [Evaluator.ResolveNumber] for other functions and for the error.
 func (m *DataModel) ResolveNumber(d a2ui.DynamicNumber, scope string) (float64, bool) {
 	n, err := (&Evaluator{Data: m}).ResolveNumber(d, scope)
 	return n, err == nil
@@ -64,8 +67,9 @@ func (m *DataModel) ResolveNumber(d a2ui.DynamicNumber, scope string) (float64, 
 
 // ResolveBoolean returns the value of d, resolving data bindings in
 // scope as [ResolvePath] does and evaluating calls to the functions of
-// [BasicFunctions]. It reports false if d is unset, is a function call
-// that fails, or is not a boolean.
+// [BasicFunctions] only. It reports false if d is unset, is a function
+// call that fails, or is not a boolean, and drops the error. Use
+// [Evaluator.ResolveBoolean] for other functions and for the error.
 func (m *DataModel) ResolveBoolean(d a2ui.DynamicBoolean, scope string) (bool, bool) {
 	b, err := (&Evaluator{Data: m}).ResolveBoolean(d, scope)
 	return b, err == nil
@@ -73,8 +77,9 @@ func (m *DataModel) ResolveBoolean(d a2ui.DynamicBoolean, scope string) (bool, b
 
 // ResolveStringList returns the value of d, resolving data bindings in
 // scope as [ResolvePath] does and evaluating calls to the functions of
-// [BasicFunctions]. It reports false if d is unset, is a function call
-// that fails, or is not an array of strings.
+// [BasicFunctions] only. It reports false if d is unset, is a function
+// call that fails, or is not an array of strings, and drops the error. Use
+// [Evaluator.ResolveStringList] for other functions and for the error.
 func (m *DataModel) ResolveStringList(d a2ui.DynamicStringList, scope string) ([]string, bool) {
 	list, err := (&Evaluator{Data: m}).ResolveStringList(d, scope)
 	return list, err == nil

@@ -61,8 +61,10 @@ type Evaluator struct {
 	// Data is the data model. Nil is an empty data model.
 	Data *DataModel
 
-	// Funcs maps function names to their implementations.
-	// Nil means the functions of [BasicFunctions].
+	// Funcs maps function names to their implementations. Nil means
+	// the functions of [BasicFunctions]. A non-nil map replaces the
+	// basic functions entirely: to add functions to them, start from
+	// the map that BasicFunctions returns.
 	Funcs map[string]Func
 }
 
