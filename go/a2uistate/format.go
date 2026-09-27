@@ -132,9 +132,6 @@ func formatMoney(x float64, code string, minFrac, maxFrac int, grouping bool) st
 	return sym + num
 }
 
-// dateTokens are the pattern letters of formatDate, as in web_core.
-var dateTokens = regexp.MustCompile(`yyyy|yy|MMMM|MMM|MM|M|EEEE|E|dd|d|HH|H|hh|h|mm|ss|a`)
-
 // timestampLayouts are the ISO 8601 forms that formatDate accepts,
 // after an offset of Z is added to a timestamp that has none.
 var timestampLayouts = []string{
@@ -170,6 +167,22 @@ func parseTimestamp(s string) (time.Time, bool) {
 // Unicode TR35 pattern, with en-US names. The pattern "ISO" formats the
 // time in UTC as JavaScript's Date.toISOString does, and an empty
 // pattern means "yyyy-MM-dd". It returns "" if s is not a timestamp.
+//
+// The pattern is read in runs of the same letter, as TR35 specifies:
+//
+//	yy          two-digit year; yyy or longer, the full year
+//	M, MM       month number, unpadded or padded to two digits
+//	MMM, MMMM   short and long month name (MMMM or longer)
+//	E to EEE    short weekday name; EEEE or longer, the long name
+//	d, dd       day of the month (dd or longer is padded)
+//	H, HH       hour 0-23
+//	h, hh       hour 1-12
+//	mm, ss      minute and second, padded
+//	a           AM or PM
+//
+// Any other run, such as YYYY, y, m or s, is copied as it is. Like
+// web_core, the pattern has no quoting. Unlike web_core, a run is one
+// field, so EEE is "Mon", not "MonMonMon".
 func formatTimestamp(s, pattern string) string {
 	t, ok := parseTimestamp(s)
 	if !ok {
@@ -181,57 +194,59 @@ func formatTimestamp(s, pattern string) string {
 	case "ISO":
 		return t.UTC().Format("2006-01-02T15:04:05.000Z")
 	}
-	pad := func(n int) string {
-		if n < 10 {
-			return "0" + strconv.Itoa(n)
+	num := func(n, width int) string {
+		s := strconv.Itoa(n)
+		if len(s) < width {
+			s = strings.Repeat("0", width-len(s)) + s
 		}
-		return strconv.Itoa(n)
+		return s
 	}
 	hour12 := t.Hour() % 12
 	if hour12 == 0 {
 		hour12 = 12
 	}
-	return dateTokens.ReplaceAllStringFunc(pattern, func(tok string) string {
-		switch tok {
-		case "yyyy":
-			return strconv.Itoa(t.Year())
-		case "yy":
-			y := strconv.Itoa(t.Year())
-			return y[max(len(y)-2, 0):]
-		case "MMMM":
-			return t.Month().String()
-		case "MMM":
-			return t.Month().String()[:3]
-		case "MM":
-			return pad(int(t.Month()))
-		case "M":
-			return strconv.Itoa(int(t.Month()))
-		case "EEEE":
-			return t.Weekday().String()
-		case "E":
-			return t.Weekday().String()[:3]
-		case "dd":
-			return pad(t.Day())
-		case "d":
-			return strconv.Itoa(t.Day())
-		case "HH":
-			return pad(t.Hour())
-		case "H":
-			return strconv.Itoa(t.Hour())
-		case "hh":
-			return pad(hour12)
-		case "h":
-			return strconv.Itoa(hour12)
-		case "mm":
-			return pad(t.Minute())
-		case "ss":
-			return pad(t.Second())
-		case "a":
-			if t.Hour() < 12 {
-				return "AM"
-			}
-			return "PM"
+	var b strings.Builder
+	for i := 0; i < len(pattern); {
+		c := pattern[i]
+		n := 1
+		for i+n < len(pattern) && pattern[i+n] == c {
+			n++
 		}
-		return tok
-	})
+		run := pattern[i : i+n]
+		i += n
+		switch {
+		case c == 'y' && n == 2:
+			y := strconv.Itoa(t.Year())
+			b.WriteString(y[max(len(y)-2, 0):])
+		case c == 'y' && n > 2:
+			b.WriteString(strconv.Itoa(t.Year()))
+		case c == 'M' && n <= 2:
+			b.WriteString(num(int(t.Month()), n))
+		case c == 'M' && n == 3:
+			b.WriteString(t.Month().String()[:3])
+		case c == 'M':
+			b.WriteString(t.Month().String())
+		case c == 'E' && n <= 3:
+			b.WriteString(t.Weekday().String()[:3])
+		case c == 'E':
+			b.WriteString(t.Weekday().String())
+		case c == 'd':
+			b.WriteString(num(t.Day(), min(n, 2)))
+		case c == 'H':
+			b.WriteString(num(t.Hour(), min(n, 2)))
+		case c == 'h':
+			b.WriteString(num(hour12, min(n, 2)))
+		case c == 'm' && n >= 2:
+			b.WriteString(num(t.Minute(), 2))
+		case c == 's' && n >= 2:
+			b.WriteString(num(t.Second(), 2))
+		case c == 'a' && t.Hour() < 12:
+			b.WriteString("AM")
+		case c == 'a':
+			b.WriteString("PM")
+		default:
+			b.WriteString(run)
+		}
+	}
+	return b.String()
 }

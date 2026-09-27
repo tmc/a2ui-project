@@ -46,7 +46,12 @@ func init() {
 //     whose en-US symbol is not their ISO code.
 //   - formatDate accepts ISO 8601 timestamps only (such as 2026-01-16,
 //     2026-01-16T14:30Z or 2026-01-16 14:30:05.5+05:30) and yields ""
-//     for any other value, including impossible dates.
+//     for any other value, including impossible dates. It reads its
+//     pattern in runs of the same letter, as Unicode TR35 does, so EEE
+//     is the short weekday name once (web_core repeats it) and MMMMM is
+//     the long month name. Only the letters y, M, E, d, H, h, m, s and
+//     a are fields; y, m and s alone, and any other letters, such as
+//     YYYY, are copied as they are.
 //   - regex uses Go regular expressions (package [regexp]), not
 //     JavaScript ones: lookaround and backreferences are invalid.
 //   - required, regex, length and email check a missing or null value

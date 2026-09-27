@@ -108,8 +108,10 @@ func TestFormatTimestamp(t *testing.T) {
 		{"2026-01-16T14:30:05Z", "", "2026-01-16"},
 		{"not a date", "yyyy", ""},
 		{"", "yyyy", ""},
-		{"2026-09-07T08:09:03Z", "EEE MMM d", "MonMonMon Sep 7"},
 		{"0999-01-01T00:00:00Z", "yyyy yy", "999 99"},
+		// Divergences: web_core gives "MonMonMon Sep 7" and "2026-January1-16".
+		{"2026-09-07T08:09:03Z", "EEE MMM d", "Mon Sep 7"},
+		{"2026-01-16T14:30:05Z", "yyyy-MMMMM-dd", "2026-January-16"},
 		// Divergences: V8 accepts these.
 		{"2026-02-30T00:00Z", "yyyy-MM-dd", ""},
 		{"Jan 16 2026", "yyyy-MM-dd", ""},
@@ -117,6 +119,51 @@ func TestFormatTimestamp(t *testing.T) {
 	for _, tt := range tests {
 		if got := formatTimestamp(tt.s, tt.pattern); got != tt.want {
 			t.Errorf("formatTimestamp(%q, %q) = %q, want %q", tt.s, tt.pattern, got, tt.want)
+		}
+	}
+}
+
+func TestFormatTimestampRuns(t *testing.T) {
+	const ts = "2026-09-07T08:09:03Z" // a Monday
+	tests := []struct {
+		pattern, want string
+	}{
+		{"y", "y"},
+		{"yy", "26"},
+		{"yyy", "2026"},
+		{"yyyy", "2026"},
+		{"yyyyy", "2026"},
+		{"YYYY", "YYYY"},
+		{"M", "9"},
+		{"MM", "09"},
+		{"MMM", "Sep"},
+		{"MMMM", "September"},
+		{"E", "Mon"},
+		{"EE", "Mon"},
+		{"EEE", "Mon"},
+		{"EEEE", "Monday"},
+		{"EEEEE", "Monday"},
+		{"d", "7"},
+		{"dd", "07"},
+		{"ddd", "07"},
+		{"H", "8"},
+		{"HH", "08"},
+		{"h", "8"},
+		{"hh", "08"},
+		{"m", "m"},
+		{"mm", "09"},
+		{"mmm", "09"},
+		{"s", "s"},
+		{"ss", "03"},
+		{"a", "AM"},
+		{"aa", "AM"},
+		{"D Q G", "D Q G"},
+		{"h:mm a, EEEE", "8:09 AM, Monday"},
+		{"dd.MM.yy — é", "07.09.26 — é"},
+	}
+	for _, tt := range tests {
+		if got := formatTimestamp(ts, tt.pattern); got != tt.want {
+			t.Errorf("formatTimestamp(%q, %q) = %q, want %q", ts, tt.pattern, got, tt.want)
 		}
 	}
 }
