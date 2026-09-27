@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/a2ui-project/a2ui/go/a2ui"
@@ -86,5 +87,18 @@ func TestParserFlushAppendsTextAfterUndecodedPayload(t *testing.T) {
 	parts = append(parts, flush...)
 	if len(parts) != 2 || len(parts[0].Payload) != 1 || parts[0].Text != "" || parts[1].Text != "</a2ui" {
 		t.Fatalf("parts = %+v, want the payload then text %q", parts, "</a2ui")
+	}
+}
+
+func TestParseResponseErrorPrefix(t *testing.T) {
+	for _, content := range []string{
+		`<a2ui-json>{</a2ui-json>`,
+		`<a2ui-json> </a2ui-json>`,
+		`no tags`,
+	} {
+		_, err := ParseResponse(content)
+		if err == nil || strings.Count(err.Error(), "a2uistream:") != 1 || !strings.HasPrefix(err.Error(), "a2uistream: ") {
+			t.Errorf("ParseResponse(%q) = %v, want one a2uistream: prefix", content, err)
+		}
 	}
 }

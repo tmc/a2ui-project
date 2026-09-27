@@ -179,7 +179,7 @@ func (c *Catalog) LoadExamples(path string, validate bool) (string, error) {
 		}
 		if validate {
 			if err := validator.ValidateExample(data); err != nil {
-				return "", fmt.Errorf("a2uischema: validate example %s: %w", file, err)
+				return "", within(err, "", "validate example "+file)
 			}
 		}
 		name := filepath.Base(file)

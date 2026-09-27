@@ -46,7 +46,7 @@ func ParseResponse(s string) ([]PayloadPart, error) {
 		}
 		payload, err := FixPayload(raw)
 		if err != nil {
-			return nil, &payloadError{"a2uistream: failed to parse A2UI JSON: " + err.Error(), err}
+			return nil, err
 		}
 		parts = append(parts, PayloadPart{Text: text, Payload: payload})
 		lastEnd = close + len(closeTag)

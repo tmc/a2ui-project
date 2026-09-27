@@ -446,3 +446,18 @@ func TestValidatorComposition(t *testing.T) {
 		})
 	}
 }
+
+func TestExamplesErrorPrefix(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "bad.json"), []byte(`{"version":"v0.9","deleteSurface":{"surfaceId":"s1"}}`), 0o666); err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := mustBasicManager(t).SelectedCatalog(nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = catalog.LoadExamples(dir, true)
+	if err == nil || strings.Count(err.Error(), "a2uischema:") != 1 || !errors.Is(err, ErrVersionMismatch) {
+		t.Fatalf("LoadExamples() = %v, want one a2uischema: prefix and ErrVersionMismatch", err)
+	}
+}
