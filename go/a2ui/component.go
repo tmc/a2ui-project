@@ -1,7 +1,14 @@
 package a2ui
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 // Component represents any A2UI component in the component tree.
-// Exactly one of the concrete type fields is non-nil.
+// Exactly one of the concrete type fields is non-nil. A component whose
+// type this package does not define, such as one from a custom or
+// inline catalog, is held in Custom.
 //
 // MarshalJSON/UnmarshalJSON in zz_component_marshal.go handle
 // serialization, using the "component" field as a discriminator.
@@ -32,7 +39,44 @@ type Component struct {
 	ChoicePicker  *ChoicePickerComponent  `json:"-"`
 	Slider        *SliderComponent        `json:"-"`
 	DateTimeInput *DateTimeInputComponent `json:"-"`
+	Custom        *CustomComponent        `json:"-"`
 }
+
+// A CustomComponent holds a component whose type this package does not
+// define, such as one from a custom or inline catalog.
+type CustomComponent struct {
+	// Type is the component type, the "component" field on the wire.
+	// It must not be a type that has its own field in [Component].
+	Type string
+
+	// Properties holds the component-specific fields, those other than
+	// the common fields of [Component] and "component".
+	Properties map[string]json.RawMessage
+}
+
+// MarshalJSON encodes the properties of c as a JSON object.
+// It reports an error if c's Type is empty or has its own field in
+// [Component], or if a property has the name of a common field.
+func (c *CustomComponent) MarshalJSON() ([]byte, error) {
+	if c.Type == "" {
+		return nil, fmt.Errorf("a2ui: custom component has no type")
+	}
+	if isDefinedComponentType(c.Type) {
+		return nil, fmt.Errorf("a2ui: custom component has defined type %q", c.Type)
+	}
+	for _, key := range commonKeys {
+		if _, ok := c.Properties[key]; ok {
+			return nil, fmt.Errorf("a2ui: custom component %s: property %q is reserved", c.Type, key)
+		}
+	}
+	if c.Properties == nil {
+		return []byte("{}"), nil
+	}
+	return json.Marshal(c.Properties)
+}
+
+// commonKeys lists the JSON names of the fields shared by all components.
+var commonKeys = []string{"id", "component", "catalogId", "accessibility", "metadata", "weight", "checks"}
 
 func (c Component) componentData() (string, any, int) {
 	var (
@@ -98,6 +142,9 @@ func (c Component) componentData() (string, any, int) {
 	}
 	if c.DateTimeInput != nil {
 		set("DateTimeInput", c.DateTimeInput)
+	}
+	if c.Custom != nil {
+		set(c.Custom.Type, c.Custom)
 	}
 	return componentType, specific, count
 }

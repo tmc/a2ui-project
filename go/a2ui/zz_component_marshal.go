@@ -174,8 +174,27 @@ func (c *Component) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		c.Video = &v
+	case "":
+		return fmt.Errorf("a2ui: component %q has no component type", cm.ID)
 	default:
-		return fmt.Errorf("unknown component type: %s", disc.ComponentType)
+		props := make(map[string]json.RawMessage)
+		if err := json.Unmarshal(data, &props); err != nil {
+			return err
+		}
+		for _, key := range commonKeys {
+			delete(props, key)
+		}
+		c.Custom = &CustomComponent{Type: disc.ComponentType, Properties: props}
 	}
 	return nil
+}
+
+// isDefinedComponentType reports whether typ has a concrete field in
+// [Component] other than Custom.
+func isDefinedComponentType(typ string) bool {
+	switch typ {
+	case "AudioPlayer", "Button", "Card", "CheckBox", "ChoicePicker", "Column", "DateTimeInput", "Divider", "Icon", "Image", "List", "Modal", "Row", "Slider", "Tabs", "Text", "TextField", "Video":
+		return true
+	}
+	return false
 }

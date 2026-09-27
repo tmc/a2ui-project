@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -171,6 +172,14 @@ func TestComponentRoundTrip(t *testing.T) {
 			name: "text_with_binding",
 			json: `{"component":"Text","id":"t2","text":{"path":"/name"}}`,
 		},
+		{
+			name: "custom",
+			json: `{"component":"Gauge","id":"g1","catalogId":"https://example.com/catalog.json","value":{"path":"/level"},"max":10,"weight":1}`,
+		},
+		{
+			name: "custom_no_properties",
+			json: `{"component":"Spacer","id":"s1"}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -180,6 +189,27 @@ func TestComponentRoundTrip(t *testing.T) {
 			}
 			roundTrip(t, c, tt.json)
 		})
+	}
+}
+
+func TestComponentCustom(t *testing.T) {
+	var c Component
+	if err := json.Unmarshal([]byte(`{"id":"g1","component":"Gauge","value":3}`), &c); err != nil {
+		t.Fatal(err)
+	}
+	if c.Custom == nil || c.Custom.Type != "Gauge" || string(c.Custom.Properties["value"]) != "3" || len(c.Custom.Properties) != 1 {
+		t.Fatalf("Custom = %+v, want Gauge with value 3", c.Custom)
+	}
+	if got := c.ComponentType(); got != "Gauge" {
+		t.Errorf("ComponentType() = %q, want Gauge", got)
+	}
+}
+
+func TestComponentUnmarshalNoType(t *testing.T) {
+	var c Component
+	err := json.Unmarshal([]byte(`{"id":"x"}`), &c)
+	if err == nil || !strings.HasPrefix(err.Error(), "a2ui: ") {
+		t.Fatalf("Unmarshal = %v, want a2ui: error", err)
 	}
 }
 
@@ -199,6 +229,29 @@ func TestComponentMarshalRejectsInvalidConcreteTypes(t *testing.T) {
 				Text:   &TextComponent{Text: StringLiteral("hello")},
 				Button: &ButtonComponent{Action: Action{Event: &EventAction{Name: "click"}}, Child: "child"},
 			},
+		},
+		{
+			name: "custom_and_text",
+			comp: Component{
+				ID:     "bad",
+				Text:   &TextComponent{Text: StringLiteral("hello")},
+				Custom: &CustomComponent{Type: "Gauge"},
+			},
+		},
+		{
+			name: "custom_no_type",
+			comp: Component{ID: "bad", Custom: &CustomComponent{}},
+		},
+		{
+			name: "custom_defined_type",
+			comp: Component{ID: "bad", Custom: &CustomComponent{Type: "Text"}},
+		},
+		{
+			name: "custom_reserved_property",
+			comp: Component{ID: "bad", Custom: &CustomComponent{
+				Type:       "Gauge",
+				Properties: map[string]json.RawMessage{"id": json.RawMessage(`"other"`)},
+			}},
 		},
 	}
 	for _, tt := range tests {
