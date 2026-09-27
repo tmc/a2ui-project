@@ -7,8 +7,22 @@
 // addressed by JSON Pointers and resolves data bindings, including the
 // relative paths used inside list templates.
 //
-// Function calls are not evaluated: resolving a dynamic value that is a
-// function call reports that no value is available.
+// An [Evaluator] resolves dynamic values against a data model and
+// evaluates their function calls, including the ${...} expressions of
+// formatString templates. By default it has the functions of the basic
+// catalog, which [BasicFunctions] lists along with how they differ from
+// the web renderers; a renderer adds its own catalog's functions to
+// that map. [Evaluator.Check] evaluates the checks of a component and
+// returns the failures. The Resolve methods of DataModel evaluate with
+// the basic functions and report only whether a value is available.
+//
+// Functions that perform actions, such as openUrl, are not performed:
+// evaluating one for its value fails with [ErrAction]. A renderer
+// performs actions itself, using [Evaluator.ResolveArgs] to resolve
+// their arguments.
+//
+// The errors of an Evaluator wrap [ErrNoValue], [ErrWrongType],
+// [ErrUnknownFunction], [ErrInvalidArgs] or [ErrAction].
 //
 // The types in this package are not safe for concurrent use.
 package a2uistate
