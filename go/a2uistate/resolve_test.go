@@ -218,3 +218,26 @@ func TestToString(t *testing.T) {
 		}
 	}
 }
+
+func TestDataModelResolveFunctions(t *testing.T) {
+	m := testModel(t)
+	s, ok := m.ResolveString(a2ui.FormatString(a2ui.StringLiteral("${name}!")), "/items/0")
+	if s != "Bob!" || !ok {
+		t.Errorf("ResolveString(formatString) = %q, %v, want %q, true", s, ok, "Bob!")
+	}
+	n, ok := m.ResolveNumber(a2ui.Index(1), "/items/0")
+	if n != 1 || !ok {
+		t.Errorf("ResolveNumber(@index) = %v, %v, want 1, true", n, ok)
+	}
+	b, ok := m.ResolveBoolean(a2ui.Not(a2ui.BoolBinding("/on")), "")
+	if b || !ok {
+		t.Errorf("ResolveBoolean(not) = %v, %v, want false, true", b, ok)
+	}
+	v, ok := m.ResolveValue(a2ui.ValueArray([]any{map[string]any{"path": "/name"}}), "")
+	if want := []any{"Ann"}; !reflect.DeepEqual(v, want) || !ok {
+		t.Errorf("ResolveValue(array) = %#v, %v, want %#v, true", v, ok, want)
+	}
+	if _, ok := m.ResolveValue(a2ui.ValueFunc(*a2ui.OpenURL(a2ui.StringLiteral("https://a2ui.org")).FunctionCall), ""); ok {
+		t.Error("ResolveValue(openUrl) reported a value")
+	}
+}

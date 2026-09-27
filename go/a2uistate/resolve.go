@@ -30,99 +30,54 @@ func ResolvePath(path, scope string) string {
 	}
 }
 
-// ResolveValue returns the value of d, resolving a data binding in scope
-// as [ResolvePath] does. It reports false if d is unset, is a function
-// call or is bound to a missing value.
+// ResolveValue returns the value of d, resolving data bindings in scope
+// as [ResolvePath] does and evaluating calls to the functions of
+// [BasicFunctions]. It reports false if d is unset, is bound to a
+// missing value or is a function call that fails. Use an [Evaluator]
+// for other functions and for the error.
 func (m *DataModel) ResolveValue(d a2ui.DynamicValue, scope string) (any, bool) {
-	switch {
-	case d.String != nil:
-		return *d.String, true
-	case d.Number != nil:
-		return *d.Number, true
-	case d.Bool != nil:
-		return *d.Bool, true
-	case d.Array != nil:
-		return d.Array, true
-	case d.Binding != nil:
-		return m.Get(ResolvePath(d.Binding.Path, scope))
-	}
-	return nil, false
+	v, err := (&Evaluator{Data: m}).ResolveValue(d, scope)
+	return v, err == nil
 }
 
-// ResolveString returns the value of d, resolving a data binding in
-// scope as [ResolvePath] does. A bound value that is not a string is
-// converted as the A2UI protocol specifies: numbers as JavaScript's
-// String does (42, 1.5, 1e+21), booleans to "true" or "false", null to
-// "", and objects and arrays to JSON.
-// ResolveString reports false if d is unset, is a function call or is
-// bound to a missing value.
+// ResolveString returns the value of d, resolving data bindings in
+// scope as [ResolvePath] does and evaluating calls to the functions of
+// [BasicFunctions]. A value that is not a string is converted as the
+// A2UI protocol specifies: numbers as JavaScript's String does (42,
+// 1.5, 1e+21), booleans to "true" or "false", null to "", and objects
+// and arrays to JSON.
+// ResolveString reports false if d is unset, is bound to a missing
+// value or is a function call that fails.
 func (m *DataModel) ResolveString(d a2ui.DynamicString, scope string) (string, bool) {
-	switch {
-	case d.Literal != nil:
-		return *d.Literal, true
-	case d.Binding != nil:
-		v, ok := m.Get(ResolvePath(d.Binding.Path, scope))
-		if !ok {
-			return "", false
-		}
-		return toString(v), true
-	}
-	return "", false
+	s, err := (&Evaluator{Data: m}).ResolveString(d, scope)
+	return s, err == nil
 }
 
-// ResolveNumber returns the value of d, resolving a data binding in
-// scope as [ResolvePath] does. It reports false if d is unset, is a
-// function call or is bound to a value that is missing or not a number.
+// ResolveNumber returns the value of d, resolving data bindings in
+// scope as [ResolvePath] does and evaluating calls to the functions of
+// [BasicFunctions]. It reports false if d is unset, is a function call
+// that fails, or is not a number.
 func (m *DataModel) ResolveNumber(d a2ui.DynamicNumber, scope string) (float64, bool) {
-	switch {
-	case d.Literal != nil:
-		return *d.Literal, true
-	case d.Binding != nil:
-		v, _ := m.Get(ResolvePath(d.Binding.Path, scope))
-		n, ok := v.(float64)
-		return n, ok
-	}
-	return 0, false
+	n, err := (&Evaluator{Data: m}).ResolveNumber(d, scope)
+	return n, err == nil
 }
 
-// ResolveBoolean returns the value of d, resolving a data binding in
-// scope as [ResolvePath] does. It reports false if d is unset, is a
-// function call or is bound to a value that is missing or not a boolean.
+// ResolveBoolean returns the value of d, resolving data bindings in
+// scope as [ResolvePath] does and evaluating calls to the functions of
+// [BasicFunctions]. It reports false if d is unset, is a function call
+// that fails, or is not a boolean.
 func (m *DataModel) ResolveBoolean(d a2ui.DynamicBoolean, scope string) (bool, bool) {
-	switch {
-	case d.Literal != nil:
-		return *d.Literal, true
-	case d.Binding != nil:
-		v, _ := m.Get(ResolvePath(d.Binding.Path, scope))
-		b, ok := v.(bool)
-		return b, ok
-	}
-	return false, false
+	b, err := (&Evaluator{Data: m}).ResolveBoolean(d, scope)
+	return b, err == nil
 }
 
-// ResolveStringList returns the value of d, resolving a data binding in
-// scope as [ResolvePath] does. It reports false if d is unset, is a
-// function call or is bound to a value that is missing or not an array
-// of strings.
+// ResolveStringList returns the value of d, resolving data bindings in
+// scope as [ResolvePath] does and evaluating calls to the functions of
+// [BasicFunctions]. It reports false if d is unset, is a function call
+// that fails, or is not an array of strings.
 func (m *DataModel) ResolveStringList(d a2ui.DynamicStringList, scope string) ([]string, bool) {
-	switch {
-	case d.Literal != nil:
-		return d.Literal, true
-	case d.Binding != nil:
-		v, _ := m.Get(ResolvePath(d.Binding.Path, scope))
-		list, ok := v.([]any)
-		if !ok {
-			return nil, false
-		}
-		out := make([]string, len(list))
-		for i, x := range list {
-			if out[i], ok = x.(string); !ok {
-				return nil, false
-			}
-		}
-		return out, true
-	}
-	return nil, false
+	list, err := (&Evaluator{Data: m}).ResolveStringList(d, scope)
+	return list, err == nil
 }
 
 // toString converts a JSON value to a string for display.
