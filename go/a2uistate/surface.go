@@ -98,7 +98,7 @@ func (s *Surface) apply(msg a2ui.AgentMessage) error {
 		if s.created && !s.deleted {
 			return fmt.Errorf("a2uistate: surface %q: createSurface for existing surface", s.id)
 		}
-		*s = Surface{
+		next := Surface{
 			id:            s.id,
 			created:       true,
 			catalogID:     c.CatalogID,
@@ -106,10 +106,11 @@ func (s *Surface) apply(msg a2ui.AgentMessage) error {
 			metadata:      c.Metadata,
 			components:    make(map[string]a2ui.Component, len(c.Components)),
 		}
-		s.addComponents(c.Components)
-		if err := s.data.Set("", c.DataModel); err != nil {
+		if err := next.data.Set("", c.DataModel); err != nil {
 			return fmt.Errorf("a2uistate: surface %q: createSurface: %w", s.id, err)
 		}
+		next.addComponents(c.Components)
+		*s = next
 		return nil
 	}
 	if s.deleted {

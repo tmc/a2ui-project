@@ -253,3 +253,21 @@ func TestSurfacesAdd(t *testing.T) {
 		t.Errorf("createSurface for an added surface succeeded")
 	}
 }
+
+func TestSurfaceCreateFailureLeavesState(t *testing.T) {
+	s := NewSurface("s")
+	if err := s.Apply(update("s", text("a", "x")), setData("s", "/m", "y")); err != nil {
+		t.Fatal(err)
+	}
+	bad := create("s", text("root", "r"))
+	bad.CreateSurface.DataModel = map[string]any{"f": func() {}}
+	if err := s.Apply(bad); err == nil {
+		t.Fatal("createSurface with an unencodable data model succeeded")
+	}
+	if got, want := state(s), `|a=x|{"m":"y"}|`; got != want {
+		t.Errorf("state after failed createSurface = %s, want %s", got, want)
+	}
+	if err := s.Apply(create("s")); err != nil {
+		t.Errorf("createSurface after failed createSurface: %v", err)
+	}
+}
