@@ -288,3 +288,24 @@ func TestSurfacesDeleteRetained(t *testing.T) {
 		t.Errorf("retained surface state = %s, want %s", got, want)
 	}
 }
+
+func TestSurfaceZero(t *testing.T) {
+	var s Surface
+	err := s.Apply(update("", text("a", "x")), setData("", "/m", 1), create("", text("root", "r")), update("", text("b", "y")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := state(&s), `cat|root=r,b=y|{"n":1}|`; got != want {
+		t.Errorf("state = %s, want %s", got, want)
+	}
+	if err := s.Apply(del(""), update("", text("a", "x"))); err == nil {
+		t.Error("update after delete succeeded")
+	}
+	var z Surface
+	if _, ok := z.Root(); ok {
+		t.Error("zero Surface has a root")
+	}
+	if err := z.Apply(update("s", text("a", "x"))); err == nil {
+		t.Error("zero Surface accepted a message for surface s")
+	}
+}

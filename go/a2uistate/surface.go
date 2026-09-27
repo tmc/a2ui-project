@@ -15,6 +15,10 @@ const RootID = "root"
 // for a surface that an agent knows to exist; a createSurface message
 // sets its catalog ID and initial state. After a deleteSurface message,
 // it accepts only a createSurface message, which creates it anew.
+//
+// The zero Surface is an empty surface with the ID "", which only
+// messages with an empty surface ID address. Use [NewSurface] to make
+// a surface with another ID.
 type Surface struct {
 	id            string
 	created       bool // a createSurface message has been applied
@@ -28,7 +32,7 @@ type Surface struct {
 
 // NewSurface returns an empty surface with the given ID.
 func NewSurface(id string) *Surface {
-	return &Surface{id: id, components: make(map[string]a2ui.Component)}
+	return &Surface{id: id}
 }
 
 // ID returns the ID of s.
@@ -104,7 +108,6 @@ func (s *Surface) apply(msg a2ui.AgentMessage) error {
 			catalogID:     c.CatalogID,
 			sendDataModel: c.SendDataModel,
 			metadata:      c.Metadata,
-			components:    make(map[string]a2ui.Component, len(c.Components)),
 		}
 		if err := next.data.Set("", c.DataModel); err != nil {
 			return fmt.Errorf("a2uistate: surface %q: createSurface: %w", s.id, err)
@@ -125,12 +128,15 @@ func (s *Surface) apply(msg a2ui.AgentMessage) error {
 			return fmt.Errorf("a2uistate: surface %q: updateDataModel: %w", s.id, err)
 		}
 	case msg.DeleteSurface != nil:
-		*s = Surface{id: s.id, created: s.created, deleted: true, components: make(map[string]a2ui.Component)}
+		*s = Surface{id: s.id, created: s.created, deleted: true}
 	}
 	return nil
 }
 
 func (s *Surface) addComponents(components []a2ui.Component) {
+	if s.components == nil {
+		s.components = make(map[string]a2ui.Component, len(components))
+	}
 	for _, c := range components {
 		s.components[c.ID] = c
 	}
