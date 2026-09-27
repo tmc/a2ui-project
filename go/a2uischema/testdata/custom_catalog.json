@@ -1,0 +1,27 @@
+{
+  "catalogId": "https://example.com/custom_catalog.json",
+  "components": {
+    "Gauge": {
+      "type": "object",
+      "properties": {
+        "component": {"const": "Gauge"},
+        "value": {"$ref": "common_types.json#/$defs/DynamicNumber"}
+      }
+    },
+    "Panel": {
+      "type": "object",
+      "properties": {
+        "component": {"const": "Panel"},
+        "header": {"$ref": "common_types.json#/$defs/Child"},
+        "items": {"$ref": "common_types.json#/$defs/ChildList"},
+        "sections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {"body": {"$ref": "common_types.json#/$defs/ComponentId"}}
+          }
+        }
+      }
+    }
+  }
+}

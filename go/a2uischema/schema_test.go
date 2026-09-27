@@ -193,6 +193,64 @@ func TestValidatorUnknownComponent(t *testing.T) {
 	}
 }
 
+func TestValidatorUnknownCustomComponent(t *testing.T) {
+	const msgs = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Gauge","value":3}]}}`
+	err := mustBasicValidator(t).ValidateJSON([]byte(msgs))
+	if !errors.Is(err, ErrUnknownComponent) {
+		t.Fatalf("ValidateJSON() = %v, want ErrUnknownComponent", err)
+	}
+}
+
+func TestValidatorCustomCatalog(t *testing.T) {
+	manager, err := NewSchemaManager([]CatalogConfig{
+		CatalogConfigFromPath("custom", "testdata/custom_catalog.json", ""),
+	}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := manager.SelectedCatalog(nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	validator := catalog.Validator()
+
+	const create = `{"version":"v1.0","createSurface":{"surfaceId":"s1","catalogId":"https://example.com/custom_catalog.json"}}`
+	update := func(components string) string {
+		return `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[` + components + `]}}`
+	}
+	tests := []struct {
+		name string
+		msgs []string
+		err  error
+		path string
+	}{
+		{"all refs", []string{create, update(`{"id":"root","component":"Panel","header":"h","items":["a","b"],"sections":[{"body":"c"}]},{"id":"h","component":"Gauge"},{"id":"a","component":"Gauge"},{"id":"b","component":"Gauge"},{"id":"c","component":"Gauge"}`)}, nil, ""},
+		{"template", []string{create, update(`{"id":"root","component":"Panel","items":{"componentId":"t","path":"/xs"}},{"id":"t","component":"Gauge"}`)}, nil, ""},
+		{"orphan", []string{create, update(`{"id":"root","component":"Panel","header":"h"},{"id":"h","component":"Gauge"},{"id":"x","component":"Gauge"}`)}, ErrInvalidTree, "/1/updateComponents/components/2"},
+		{"unknown ref", []string{create, update(`{"id":"root","component":"Panel","sections":[{"body":"missing"}]}`)}, ErrInvalidTree, "/1/updateComponents/components/0/sections/0/body"},
+		{"cycle", []string{create, update(`{"id":"root","component":"Panel","header":"p"},{"id":"p","component":"Panel","items":["root"]}`)}, ErrInvalidTree, "/1/updateComponents/components/0"},
+		{"unknown type", []string{create, update(`{"id":"root","component":"Dial"}`)}, ErrUnknownComponent, "/1/updateComponents/components/0/component"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateJSON([]byte("[" + strings.Join(tt.msgs, ",") + "]"))
+			if tt.err == nil {
+				if err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			if !errors.Is(err, tt.err) {
+				t.Fatalf("ValidateJSON() = %v, want %v", err, tt.err)
+			}
+			var ve *ValidationError
+			if errors.As(err, &ve) && ve.Path != tt.path {
+				t.Errorf("Path = %q, want %q", ve.Path, tt.path)
+			}
+		})
+	}
+}
+
 func TestValidationErrorMessage(t *testing.T) {
 	const msgs = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Card"}]}}`
 	err := mustBasicValidator(t).ValidateJSON([]byte(msgs))

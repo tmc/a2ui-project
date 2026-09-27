@@ -27,6 +27,10 @@ type Validator struct {
 	// the map allows any parent or child.
 	allowedParents  map[string][]string
 	allowedChildren map[string][]string
+
+	// Schemas of the catalog's components by type, used to find the
+	// references in custom components.
+	componentSchemas map[string]map[string]any
 }
 
 // NewValidator constructs a validator for a catalog.
@@ -35,6 +39,7 @@ func NewValidator(catalog *Catalog) *Validator {
 		catalog:           catalog,
 		allowedComponents: make(map[string]struct{}),
 		allowedFunctions:  make(map[string]struct{}),
+		componentSchemas:  make(map[string]map[string]any),
 	}
 	if catalog == nil {
 		return v
@@ -43,6 +48,7 @@ func NewValidator(catalog *Catalog) *Validator {
 		for name, def := range components {
 			v.allowedComponents[name] = struct{}{}
 			def, _ := def.(map[string]any)
+			v.componentSchemas[name] = def
 			if types, ok := stringList(def["allowedParents"]); ok {
 				if v.allowedParents == nil {
 					v.allowedParents = make(map[string][]string)
@@ -136,7 +142,7 @@ func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 		}
 		for j, c := range components {
 			p := path + pointer(j)
-			tree[c.ID] = placedComponent{typ: c.ComponentType(), path: p, refs: at(componentRefs(c), p)}
+			tree[c.ID] = placedComponent{typ: c.ComponentType(), path: p, refs: at(v.componentRefs(c), p)}
 		}
 		return v.validateComposition(surfaceID, tree)
 	}
@@ -336,7 +342,7 @@ func (v *Validator) validateComponents(components []a2ui.Component, known map[st
 	graph := make(map[string][]string, len(components))
 	for i, component := range components {
 		graph[component.ID] = nil
-		for _, ref := range componentRefs(component) {
+		for _, ref := range v.componentRefs(component) {
 			if _, ok := ids[ref.to]; ok {
 				graph[component.ID] = append(graph[component.ID], ref.to)
 				continue
@@ -783,18 +789,18 @@ func validateFunctionResponse(response a2ui.FunctionResponse) error {
 
 // componentRefs returns the references from component to other
 // components, with paths relative to the component.
-func componentRefs(component a2ui.Component) []componentRef {
+func (v *Validator) componentRefs(component a2ui.Component) []componentRef {
 	switch {
 	case component.Button != nil:
 		return []componentRef{{to: component.Button.Child, path: "/child"}}
 	case component.Card != nil:
 		return []componentRef{{to: component.Card.Child, path: "/child"}}
 	case component.Column != nil:
-		return childListRefs(component.Column.Children)
+		return childListRefs(component.Column.Children, "/children")
 	case component.List != nil:
-		return childListRefs(component.List.Children)
+		return childListRefs(component.List.Children, "/children")
 	case component.Row != nil:
-		return childListRefs(component.Row.Children)
+		return childListRefs(component.Row.Children, "/children")
 	case component.Modal != nil:
 		return []componentRef{
 			{to: component.Modal.Trigger, path: "/trigger"},
@@ -806,18 +812,77 @@ func componentRefs(component a2ui.Component) []componentRef {
 			refs = append(refs, componentRef{to: tab.Child, path: pointer("tabs", i, "child")})
 		}
 		return refs
+	case component.Custom != nil:
+		var refs []componentRef
+		for _, name := range slices.Sorted(maps.Keys(component.Custom.Properties)) {
+			refs = schemaRefs(refs, v.componentSchemas[component.Custom.Type], name, component.Custom.Properties[name], pointer(name))
+		}
+		return refs
 	default:
 		return nil
 	}
 }
 
-func childListRefs(children a2ui.ChildList) []componentRef {
+// schemaRefs appends to refs the references to components in value,
+// the property name of an object with the given schema, found by
+// walking value alongside its schema. A property whose schema refers to the common types Child or
+// ComponentId holds a reference; one that refers to ChildList holds a
+// list of references or a template.
+func schemaRefs(refs []componentRef, schema map[string]any, name string, value json.RawMessage, path string) []componentRef {
+	props, _ := schema["properties"].(map[string]any)
+	prop, _ := props[name].(map[string]any)
+	if prop == nil {
+		// Look in allOf, as in {"allOf": [{"$ref": ...}, {"properties": ...}]}.
+		all, _ := schema["allOf"].([]any)
+		for _, sub := range all {
+			if sub, ok := sub.(map[string]any); ok {
+				refs = schemaRefs(refs, sub, name, value, path)
+			}
+		}
+		return refs
+	}
+	ref, _ := prop["$ref"].(string)
+	switch {
+	case strings.HasSuffix(ref, "$defs/Child"), strings.HasSuffix(ref, "$defs/ComponentId"):
+		var id string
+		if json.Unmarshal(value, &id) == nil {
+			refs = append(refs, componentRef{to: id, path: path})
+		}
+	case strings.HasSuffix(ref, "$defs/ChildList"):
+		var children a2ui.ChildList
+		if json.Unmarshal(value, &children) == nil {
+			refs = append(refs, childListRefs(children, path)...)
+		}
+	case prop["items"] != nil:
+		items, _ := prop["items"].(map[string]any)
+		var list []json.RawMessage
+		if json.Unmarshal(value, &list) != nil {
+			break
+		}
+		wrap := map[string]any{"properties": map[string]any{"item": items}}
+		for i, item := range list {
+			refs = schemaRefs(refs, wrap, "item", item, path+pointer(i))
+		}
+	case prop["properties"] != nil:
+		var obj map[string]json.RawMessage
+		if json.Unmarshal(value, &obj) != nil {
+			break
+		}
+		for _, name := range slices.Sorted(maps.Keys(obj)) {
+			refs = schemaRefs(refs, prop, name, obj[name], path+pointer(name))
+		}
+	}
+	return refs
+}
+
+// childListRefs returns the references in children, which is at path.
+func childListRefs(children a2ui.ChildList, path string) []componentRef {
 	if children.Template != nil {
-		return []componentRef{{to: children.Template.ComponentID, path: "/children/componentId"}}
+		return []componentRef{{to: children.Template.ComponentID, path: path + "/componentId"}}
 	}
 	refs := make([]componentRef, 0, len(children.IDs))
 	for i, id := range children.IDs {
-		refs = append(refs, componentRef{to: id, path: pointer("children", i)})
+		refs = append(refs, componentRef{to: id, path: path + pointer(i)})
 	}
 	return refs
 }
