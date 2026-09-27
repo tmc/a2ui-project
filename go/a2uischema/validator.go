@@ -116,7 +116,17 @@ func (v *Validator) ParseMessages(data []byte) ([]a2ui.AgentMessage, error) {
 }
 
 // ValidateMessages validates a batch of A2UI messages.
-// Components may refer to components in earlier messages of the batch.
+//
+// For a surface that the batch creates, the components must form a
+// tree from the component with id "root", and every reference must
+// resolve by the end of the batch; components may refer to components
+// in later messages. A batch may also update a surface created before
+// it. As the A2UI v1.0 protocol specification says, a renderer buffers
+// such updates, so for those surfaces a missing root, references to
+// components outside the batch and components with no parent in the
+// batch are not errors. Duplicate ids and cycles are errors for every
+// surface.
+//
 // If the catalog declares allowedParents or allowedChildren for a
 // component type, ValidateMessages checks each surface's component tree
 // against them.
@@ -130,6 +140,7 @@ func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 	// if they remain unresolved after the last message.
 	surfaceComponents := make(map[string]map[string]bool)
 	pending := make(map[string][]componentRef)
+	created := make(map[string]string) // JSON pointer of createSurface by surface id
 	trees := make(map[string]map[string]placedComponent)
 	place := func(surfaceID, path string, components []a2ui.Component) error {
 		if v.allowedParents == nil && v.allowedChildren == nil {
@@ -156,8 +167,9 @@ func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 			known := make(map[string]bool)
 			surfaceComponents[id] = known
 			pending[id] = nil
+			created[id] = pointer(i, "createSurface")
 			if len(msg.CreateSurface.Components) > 0 {
-				refs, err := v.validateComponents(msg.CreateSurface.Components, nil)
+				refs, err := v.validateComponents(msg.CreateSurface.Components, nil, true)
 				if err != nil {
 					return within(err, pointer(i, "createSurface", "components"), fmt.Sprintf("message[%d]: createSurface", i))
 				}
@@ -173,7 +185,8 @@ func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 		case msg.UpdateComponents != nil:
 			id := msg.UpdateComponents.SurfaceID
 			known := surfaceComponents[id]
-			refs, err := v.validateComponents(msg.UpdateComponents.Components, known)
+			_, isCreated := created[id]
+			refs, err := v.validateComponents(msg.UpdateComponents.Components, known, isCreated)
 			if err != nil {
 				return within(err, pointer(i, "updateComponents", "components"), fmt.Sprintf("message[%d]: updateComponents", i))
 			}
@@ -184,19 +197,27 @@ func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 			for _, component := range msg.UpdateComponents.Components {
 				known[component.ID] = true
 			}
-			refs = at(refs, pointer(i, "updateComponents", "components"))
-			pending[id] = slices.DeleteFunc(append(pending[id], refs...), func(r componentRef) bool { return known[r.to] })
+			if isCreated {
+				refs = at(refs, pointer(i, "updateComponents", "components"))
+				pending[id] = slices.DeleteFunc(append(pending[id], refs...), func(r componentRef) bool { return known[r.to] })
+			}
 			if err := place(id, pointer(i, "updateComponents", "components"), msg.UpdateComponents.Components); err != nil {
 				return err
 			}
 		case msg.DeleteSurface != nil:
 			delete(surfaceComponents, msg.DeleteSurface.SurfaceID)
 			delete(pending, msg.DeleteSurface.SurfaceID)
+			delete(created, msg.DeleteSurface.SurfaceID)
 			delete(trees, msg.DeleteSurface.SurfaceID)
 		case msg.UpdateDataModel != nil:
 			if err := validatePath(msg.UpdateDataModel.Path, true); err != nil {
 				return within(err, pointer(i, "updateDataModel", "path"), fmt.Sprintf("message[%d]: updateDataModel.path", i))
 			}
+		}
+	}
+	for _, id := range slices.Sorted(maps.Keys(created)) {
+		if known := surfaceComponents[id]; len(known) > 0 && !known["root"] {
+			return invalid(ErrInvalidTree, created[id], fmt.Sprintf("surface %q has no component with id %q", id, "root"))
 		}
 	}
 	for _, id := range slices.Sorted(maps.Keys(pending)) {
@@ -326,8 +347,10 @@ func (v *Validator) validateMessage(msg a2ui.AgentMessage) error {
 
 // validateComponents validates components and returns the references
 // to components that are neither in components nor in known.
+// If created is set, the surface was created in the batch being
+// validated, and components with no parent are reported as orphans.
 // Error and reference paths are relative to the components array.
-func (v *Validator) validateComponents(components []a2ui.Component, known map[string]bool) ([]componentRef, error) {
+func (v *Validator) validateComponents(components []a2ui.Component, known map[string]bool, created bool) ([]componentRef, error) {
 	ids := make(map[string]int, len(components))
 	for i, component := range components {
 		if err := v.validateComponent(component); err != nil {
@@ -355,13 +378,12 @@ func (v *Validator) validateComponents(components []a2ui.Component, known map[st
 			unknown = append(unknown, ref)
 		}
 	}
-	if _, ok := ids["root"]; !ok && len(known) == 0 {
-		return nil, invalid(ErrInvalidTree, "", fmt.Sprintf("components must include id %q", "root"))
+	root := ""
+	if _, ok := ids["root"]; ok && created {
+		root = "root"
 	}
-	if _, ok := ids["root"]; ok {
-		if err := validateTopology(graph, "root", ids); err != nil {
-			return nil, err
-		}
+	if err := validateTopology(graph, root, ids); err != nil {
+		return nil, err
 	}
 	return unknown, nil
 }
@@ -929,9 +951,10 @@ func (v *Validator) ValidateExample(data []byte) error {
 	return v.ValidateJSON(example.Messages)
 }
 
-// validateTopology checks that the components in graph form a tree
-// from root. Ids maps component ids to their index in the components
-// array, to which error paths are relative.
+// validateTopology checks that the components in graph have no cycles
+// and, if root is not empty, that they form a tree from root.
+// Ids maps component ids to their index in the components array, to
+// which error paths are relative.
 func validateTopology(graph map[string][]string, root string, ids map[string]int) error {
 	seen := make(map[string]bool, len(graph))
 	stack := make(map[string]bool, len(graph))
@@ -951,6 +974,14 @@ func validateTopology(graph map[string][]string, root string, ids map[string]int
 			}
 		}
 		delete(stack, node)
+		return nil
+	}
+	if root == "" {
+		for _, id := range slices.SortedFunc(maps.Keys(ids), func(a, b string) int { return ids[a] - ids[b] }) {
+			if err := visit(id); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 	if err := visit(root); err != nil {

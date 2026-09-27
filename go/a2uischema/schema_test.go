@@ -145,9 +145,21 @@ func TestValidatorErrors(t *testing.T) {
 		},
 		{
 			name: "orphan",
-			msgs: `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["greeting"]},{"id":"greeting","component":"Text","text":"hello"},{"id":"extra","component":"Text","text":"orphan"}]}}`,
+			msgs: `[{"version":"v1.0","createSurface":{"surfaceId":"s1"}},{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["greeting"]},{"id":"greeting","component":"Text","text":"hello"},{"id":"extra","component":"Text","text":"orphan"}]}}]`,
 			want: ErrInvalidTree,
-			path: "/updateComponents/components/2",
+			path: "/1/updateComponents/components/2",
+		},
+		{
+			name: "missing root",
+			msgs: `[{"version":"v1.0","createSurface":{"surfaceId":"s1"}},{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"a","component":"Text","text":"a"}]}}]`,
+			want: ErrInvalidTree,
+			path: "/0/createSurface",
+		},
+		{
+			name: "cycle without root",
+			msgs: `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"a","component":"Card","child":"b"},{"id":"b","component":"Card","child":"a"}]}}`,
+			want: ErrInvalidTree,
+			path: "/updateComponents/components/0",
 		},
 		{
 			name: "unknown reference",
@@ -283,6 +295,12 @@ func TestValidatorComponentRefs(t *testing.T) {
 		{"forward_ref_resolved", []string{create, root, body}, false},
 		{"forward_ref_unresolved", []string{create, root}, true},
 		{"deleted_surface", []string{create, root, deleteS}, false},
+		// Updates to a surface created before the batch may refer to
+		// components outside it, and need not include root.
+		{"existing_surface_ref", []string{root}, false},
+		{"existing_surface_no_root", []string{body}, false},
+		{"existing_surface_orphan", []string{`{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Card","child":"body"},{"id":"body","component":"Text","text":"hi"},{"id":"extra","component":"Text","text":"hi"}]}}`}, false},
+		{"recreated_surface", []string{root, deleteS, create, body}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

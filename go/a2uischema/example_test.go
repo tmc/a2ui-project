@@ -97,9 +97,12 @@ func ExampleErrInvalidTree() {
 	if err != nil {
 		panic(err)
 	}
-	err = catalog.Validator().ValidateJSON([]byte(`{"version": "v1.0", "updateComponents": {"surfaceId": "s1", "components": [
-		{"id": "root", "component": "Card", "child": "body"}
-	]}}`))
+	err = catalog.Validator().ValidateJSON([]byte(`[
+		{"version": "v1.0", "createSurface": {"surfaceId": "s1"}},
+		{"version": "v1.0", "updateComponents": {"surfaceId": "s1", "components": [
+			{"id": "root", "component": "Card", "child": "body"}
+		]}}
+	]`))
 	fmt.Println(errors.Is(err, a2uischema.ErrInvalidTree))
 	fmt.Println(err)
 	// Output:
