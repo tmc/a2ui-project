@@ -302,3 +302,81 @@ func roundTrip(t *testing.T, v any, wantJSON string) {
 func boolPtr(v bool) *bool { return &v }
 
 func float64Ptr(v float64) *float64 { return &v }
+
+func TestDynamicNullRoundTrip(t *testing.T) {
+	// A JSON null leaves a union unset, and an unset union does not
+	// encode, so null never turns into a literal.
+	tests := []struct {
+		name string
+		v    any
+	}{
+		{"DynamicString", &struct{ X DynamicString }{}},
+		{"DynamicNumber", &struct{ X DynamicNumber }{}},
+		{"DynamicBoolean", &struct{ X DynamicBoolean }{}},
+		{"DynamicStringList", &struct{ X DynamicStringList }{}},
+		{"DynamicValue", &struct{ X DynamicValue }{}},
+		{"DynamicValidationResult", &struct{ X DynamicValidationResult }{}},
+		{"Action", &struct{ X Action }{}},
+		{"IconNameOrPath", &struct{ X IconNameOrPath }{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := json.Unmarshal([]byte(`{"X":null}`), tt.v); err != nil {
+				t.Fatalf("Unmarshal null: %v", err)
+			}
+			if x := reflect.ValueOf(tt.v).Elem().Field(0); !x.IsZero() {
+				t.Fatalf("Unmarshal null = %+v, want zero", x.Interface())
+			}
+			if data, err := json.Marshal(tt.v); err == nil {
+				t.Fatalf("Marshal zero = %s, want error", data)
+			}
+		})
+	}
+}
+
+func TestDynamicNullKeepsValue(t *testing.T) {
+	d := StringLiteral("x")
+	if err := json.Unmarshal([]byte("null"), &d); err != nil {
+		t.Fatal(err)
+	}
+	if d.Literal == nil || *d.Literal != "x" {
+		t.Fatalf("Unmarshal null changed value to %+v", d)
+	}
+}
+
+func TestDynamicRoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		v    any
+		json string
+	}{
+		{"string empty", new(DynamicString), `""`},
+		{"string", new(DynamicString), `"hi"`},
+		{"string binding", new(DynamicString), `{"path":"/a"}`},
+		{"number zero", new(DynamicNumber), `0`},
+		{"number call", new(DynamicNumber), `{"call":"now"}`},
+		{"boolean false", new(DynamicBoolean), `false`},
+		{"string list empty", new(DynamicStringList), `[]`},
+		{"string list", new(DynamicStringList), `["a","b"]`},
+		{"value string", new(DynamicValue), `""`},
+		{"value number", new(DynamicValue), `1.5`},
+		{"value bool", new(DynamicValue), `true`},
+		{"value array", new(DynamicValue), `[1,"a",null]`},
+		{"value binding", new(DynamicValue), `{"path":"/a"}`},
+		{"validation result", new(DynamicValidationResult), `{"path":"/ok"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := json.Unmarshal([]byte(tt.json), tt.v); err != nil {
+				t.Fatal(err)
+			}
+			data, err := json.Marshal(tt.v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != tt.json {
+				t.Errorf("round trip = %s, want %s", data, tt.json)
+			}
+		})
+	}
+}

@@ -7,6 +7,7 @@ import (
 )
 
 // MarshalJSON implements json.Marshaler for DynamicString.
+// It reports an error if d has no value set, as for the zero value.
 func (d DynamicString) MarshalJSON() ([]byte, error) {
 	if count := countSet(d.Literal != nil, d.Binding != nil, d.FunctionCall != nil); count > 1 {
 		return nil, fmt.Errorf("a2ui: DynamicString has multiple values set")
@@ -24,7 +25,11 @@ func (d DynamicString) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler for DynamicString.
+// As usual, a JSON null leaves d unchanged.
 func (d *DynamicString) UnmarshalJSON(data []byte) error {
+	if isNull(data) {
+		return nil
+	}
 	*d = DynamicString{}
 	var s string
 	if err := json.Unmarshal(data, &s); err == nil {
@@ -35,6 +40,7 @@ func (d *DynamicString) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSON implements json.Marshaler for DynamicNumber.
+// It reports an error if d has no value set, as for the zero value.
 func (d DynamicNumber) MarshalJSON() ([]byte, error) {
 	if count := countSet(d.Literal != nil, d.Binding != nil, d.FunctionCall != nil); count > 1 {
 		return nil, fmt.Errorf("a2ui: DynamicNumber has multiple values set")
@@ -52,7 +58,11 @@ func (d DynamicNumber) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler for DynamicNumber.
+// As usual, a JSON null leaves d unchanged.
 func (d *DynamicNumber) UnmarshalJSON(data []byte) error {
+	if isNull(data) {
+		return nil
+	}
 	*d = DynamicNumber{}
 	var n float64
 	if err := json.Unmarshal(data, &n); err == nil {
@@ -63,6 +73,7 @@ func (d *DynamicNumber) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSON implements json.Marshaler for DynamicBoolean.
+// It reports an error if d has no value set, as for the zero value.
 func (d DynamicBoolean) MarshalJSON() ([]byte, error) {
 	if count := countSet(d.Literal != nil, d.Binding != nil, d.FunctionCall != nil); count > 1 {
 		return nil, fmt.Errorf("a2ui: DynamicBoolean has multiple values set")
@@ -80,7 +91,11 @@ func (d DynamicBoolean) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler for DynamicBoolean.
+// As usual, a JSON null leaves d unchanged.
 func (d *DynamicBoolean) UnmarshalJSON(data []byte) error {
+	if isNull(data) {
+		return nil
+	}
 	*d = DynamicBoolean{}
 	var b bool
 	if err := json.Unmarshal(data, &b); err == nil {
@@ -91,6 +106,7 @@ func (d *DynamicBoolean) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSON implements json.Marshaler for DynamicStringList.
+// It reports an error if d has no value set, as for the zero value.
 func (d DynamicStringList) MarshalJSON() ([]byte, error) {
 	if count := countSliceValues(d.Literal != nil, d.Binding != nil, d.FunctionCall != nil); count > 1 {
 		return nil, fmt.Errorf("a2ui: DynamicStringList has multiple values set")
@@ -108,7 +124,11 @@ func (d DynamicStringList) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler for DynamicStringList.
+// As usual, a JSON null leaves d unchanged.
 func (d *DynamicStringList) UnmarshalJSON(data []byte) error {
+	if isNull(data) {
+		return nil
+	}
 	*d = DynamicStringList{}
 	var ss []string
 	if err := json.Unmarshal(data, &ss); err == nil {
@@ -119,6 +139,7 @@ func (d *DynamicStringList) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSON implements json.Marshaler for DynamicValue.
+// It reports an error if d has no value set, as for the zero value.
 func (d DynamicValue) MarshalJSON() ([]byte, error) {
 	if count := countDynamicValueFields(d); count > 1 {
 		return nil, fmt.Errorf("a2ui: DynamicValue has multiple values set")
@@ -142,7 +163,11 @@ func (d DynamicValue) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler for DynamicValue.
+// As usual, a JSON null leaves d unchanged.
 func (d *DynamicValue) UnmarshalJSON(data []byte) error {
+	if isNull(data) {
+		return nil
+	}
 	*d = DynamicValue{}
 	data = bytes.TrimSpace(data)
 	// Try string.
@@ -239,6 +264,7 @@ func countDynamicValueFields(d DynamicValue) int {
 }
 
 // MarshalJSON implements json.Marshaler for DynamicValidationResult.
+// It reports an error if d has no value set, as for the zero value.
 func (d DynamicValidationResult) MarshalJSON() ([]byte, error) {
 	switch countSet(d.Binding != nil, d.FunctionCall != nil) {
 	case 0:
@@ -254,7 +280,11 @@ func (d DynamicValidationResult) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler for DynamicValidationResult.
+// As usual, a JSON null leaves d unchanged.
 func (d *DynamicValidationResult) UnmarshalJSON(data []byte) error {
+	if isNull(data) {
+		return nil
+	}
 	*d = DynamicValidationResult{}
 	return unmarshalBindingOrFunc(data, &d.Binding, &d.FunctionCall)
 }

@@ -1,6 +1,7 @@
 package a2ui
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 )
@@ -21,7 +22,11 @@ func (c ChildList) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler for ChildList.
+// As usual, a JSON null leaves c unchanged.
 func (c *ChildList) UnmarshalJSON(data []byte) error {
+	if isNull(data) {
+		return nil
+	}
 	*c = ChildList{}
 	var ids []string
 	if err := json.Unmarshal(data, &ids); err == nil {
@@ -50,7 +55,11 @@ func (a Action) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler for Action.
+// As usual, a JSON null leaves a unchanged.
 func (a *Action) UnmarshalJSON(data []byte) error {
+	if isNull(data) {
+		return nil
+	}
 	type actionAlias Action
 	var aa actionAlias
 	if err := json.Unmarshal(data, &aa); err != nil {
@@ -90,7 +99,11 @@ func (i IconNameOrPath) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler for IconNameOrPath.
+// As usual, a JSON null leaves i unchanged.
 func (i *IconNameOrPath) UnmarshalJSON(data []byte) error {
+	if isNull(data) {
+		return nil
+	}
 	*i = IconNameOrPath{}
 	var s string
 	if err := json.Unmarshal(data, &s); err == nil {
@@ -135,4 +148,9 @@ func countSet(values ...bool) int {
 		}
 	}
 	return count
+}
+
+// isNull reports whether data is the JSON null.
+func isNull(data []byte) bool {
+	return string(bytes.TrimSpace(data)) == "null"
 }
