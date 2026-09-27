@@ -2,6 +2,7 @@ package a2uistate
 
 import (
 	"encoding/json"
+	"math"
 	"strconv"
 	"strings"
 
@@ -50,8 +51,9 @@ func (m *DataModel) ResolveValue(d a2ui.DynamicValue, scope string) (any, bool) 
 
 // ResolveString returns the value of d, resolving a data binding in
 // scope as [ResolvePath] does. A bound value that is not a string is
-// converted as the A2UI protocol specifies: numbers and booleans to
-// their usual form, null to "", and objects and arrays to JSON.
+// converted as the A2UI protocol specifies: numbers as JavaScript's
+// String does (42, 1.5, 1e+21), booleans to "true" or "false", null to
+// "", and objects and arrays to JSON.
 // ResolveString reports false if d is unset, is a function call or is
 // bound to a missing value.
 func (m *DataModel) ResolveString(d a2ui.DynamicString, scope string) (string, bool) {
@@ -131,10 +133,29 @@ func toString(v any) string {
 	case string:
 		return v
 	case float64:
-		return strconv.FormatFloat(v, 'f', -1, 64)
+		return formatNumber(v)
 	case bool:
 		return strconv.FormatBool(v)
 	}
 	data, _ := json.Marshal(v)
+	return string(data)
+}
+
+// formatNumber formats x as JavaScript's String(x) does, which is the
+// "standard string representation" the A2UI protocol specifies:
+// 42, 1.5, 1e+21, 1e-7.
+func formatNumber(x float64) string {
+	switch {
+	case x == 0:
+		return "0" // including -0
+	case math.IsNaN(x):
+		return "NaN"
+	case math.IsInf(x, 1):
+		return "Infinity"
+	case math.IsInf(x, -1):
+		return "-Infinity"
+	}
+	// encoding/json formats numbers as ES6 does.
+	data, _ := json.Marshal(x)
 	return string(data)
 }

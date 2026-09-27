@@ -1,6 +1,7 @@
 package a2uistate
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
@@ -166,6 +167,36 @@ func TestResolveValue(t *testing.T) {
 		got, ok := m.ResolveValue(tt.d, tt.scope)
 		if !reflect.DeepEqual(got, tt.want) || ok != tt.ok {
 			t.Errorf("%s: ResolveValue = %v, %v, want %v, %v", tt.name, got, ok, tt.want, tt.ok)
+		}
+	}
+}
+
+func TestFormatNumber(t *testing.T) {
+	tests := []struct {
+		x    float64
+		want string
+	}{
+		{42, "42"},
+		{1.5, "1.5"},
+		{-1.5, "-1.5"},
+		{0, "0"},
+		{math.Copysign(0, -1), "0"},
+		{0.1, "0.1"},
+		{0.000001, "0.000001"},
+		{1e-7, "1e-7"},
+		{1.5e-7, "1.5e-7"},
+		{123456789012345680000, "123456789012345680000"},
+		{1e21, "1e+21"},
+		{1.5e300, "1.5e+300"},
+		{-1e21, "-1e+21"},
+		{math.MaxFloat64, "1.7976931348623157e+308"},
+		{math.NaN(), "NaN"},
+		{math.Inf(1), "Infinity"},
+		{math.Inf(-1), "-Infinity"},
+	}
+	for _, tt := range tests {
+		if got := formatNumber(tt.x); got != tt.want {
+			t.Errorf("formatNumber(%v) = %q, want %q", tt.x, got, tt.want)
 		}
 	}
 }
