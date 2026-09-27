@@ -254,3 +254,60 @@ func mustBasicValidator(t *testing.T) *Validator {
 	}
 	return catalog.Validator()
 }
+
+func TestValidatorComposition(t *testing.T) {
+	manager, err := NewSchemaManager([]CatalogConfig{
+		CatalogConfigFromPath("composition", "testdata/composition_catalog.json", ""),
+	}, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := manager.SelectedCatalog(nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	validator := catalog.Validator()
+
+	const (
+		create = `{"version":"v1.0","createSurface":{"surfaceId":"s1","catalogId":"https://example.com/composition_catalog.json"}}`
+		// Column allows Card and Text children; Card allows Surface and
+		// Column parents; Button allows only a Card parent.
+		allowed     = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["card","text"]},{"id":"card","component":"Card","child":"button"},{"id":"button","component":"Button","child":"label","action":{"event":{"name":"go"}}},{"id":"label","component":"Text","text":"Go"},{"id":"text","component":"Text","text":"hi"}]}}`
+		badParent   = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Card","child":"inner"},{"id":"inner","component":"Card","child":"label"},{"id":"label","component":"Text","text":"Go"}]}}`
+		badChild    = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["text","inner"]},{"id":"text","component":"Text","text":"hi"},{"id":"inner","component":"Column","children":["text2"]},{"id":"text2","component":"Text","text":"hi"}]}}`
+		badRoot     = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Button","child":"label","action":{"event":{"name":"go"}}},{"id":"label","component":"Text","text":"Go"}]}}`
+		parentFirst = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"root","component":"Column","children":["later"]}]}}`
+		laterButton = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"later","component":"Button","child":"label","action":{"event":{"name":"go"}}},{"id":"label","component":"Text","text":"Go"}]}}`
+		laterCard   = `{"version":"v1.0","updateComponents":{"surfaceId":"s1","components":[{"id":"later","component":"Card","child":"label"},{"id":"label","component":"Text","text":"Go"}]}}`
+	)
+	tests := []struct {
+		name string
+		msgs []string
+		path string // "" if valid
+	}{
+		{"allowed", []string{create, allowed}, ""},
+		{"disallowed parent", []string{create, badParent}, "/1/updateComponents/components/0/child"},
+		{"disallowed child", []string{create, badChild}, "/1/updateComponents/components/0/children/1"},
+		{"disallowed root", []string{create, badRoot}, "/1/updateComponents/components/0"},
+		{"allowed across messages", []string{create, parentFirst, laterCard}, ""},
+		{"disallowed across messages", []string{create, parentFirst, laterButton}, "/1/updateComponents/components/0/children/0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateJSON([]byte("[" + strings.Join(tt.msgs, ",") + "]"))
+			if tt.path == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			if !errors.Is(err, ErrNotAllowed) {
+				t.Fatalf("ValidateJSON() = %v, want ErrNotAllowed", err)
+			}
+			var ve *ValidationError
+			if errors.As(err, &ve) && ve.Path != tt.path {
+				t.Errorf("Path = %q, want %q", ve.Path, tt.path)
+			}
+		})
+	}
+}

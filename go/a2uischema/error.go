@@ -29,6 +29,10 @@ var (
 	// tree: a duplicate id, a missing root, a reference to an unknown
 	// component, a cycle or an orphaned component.
 	ErrInvalidTree = errors.New("a2uischema: invalid component tree")
+
+	// ErrNotAllowed reports a component whose parent or child is not
+	// permitted by the allowedParents or allowedChildren of the catalog.
+	ErrNotAllowed = errors.New("a2uischema: component not allowed")
 )
 
 // A ValidationError describes a validation failure.

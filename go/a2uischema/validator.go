@@ -22,6 +22,11 @@ type Validator struct {
 	catalog           *Catalog
 	allowedComponents map[string]struct{}
 	allowedFunctions  map[string]struct{}
+
+	// Composition constraints by component type. A type that is not in
+	// the map allows any parent or child.
+	allowedParents  map[string][]string
+	allowedChildren map[string][]string
 }
 
 // NewValidator constructs a validator for a catalog.
@@ -35,8 +40,21 @@ func NewValidator(catalog *Catalog) *Validator {
 		return v
 	}
 	if components, ok := catalog.CatalogSchema[CatalogComponentsKey].(map[string]any); ok {
-		for name := range components {
+		for name, def := range components {
 			v.allowedComponents[name] = struct{}{}
+			def, _ := def.(map[string]any)
+			if types, ok := stringList(def["allowedParents"]); ok {
+				if v.allowedParents == nil {
+					v.allowedParents = make(map[string][]string)
+				}
+				v.allowedParents[name] = types
+			}
+			if types, ok := stringList(def["allowedChildren"]); ok {
+				if v.allowedChildren == nil {
+					v.allowedChildren = make(map[string][]string)
+				}
+				v.allowedChildren[name] = types
+			}
 		}
 	}
 	switch functions := catalog.CatalogSchema[CatalogFunctionsKey].(type) {
@@ -53,6 +71,22 @@ func NewValidator(catalog *Catalog) *Validator {
 		}
 	}
 	return v
+}
+
+// stringList returns x as a list of strings, reporting whether x is
+// a JSON array.
+func stringList(x any) ([]string, bool) {
+	list, ok := x.([]any)
+	if !ok {
+		return nil, false
+	}
+	out := make([]string, 0, len(list))
+	for _, item := range list {
+		if s, ok := item.(string); ok {
+			out = append(out, s)
+		}
+	}
+	return out, true
 }
 
 // ParseMessages parses a single A2UI message object or an array of them.
@@ -76,6 +110,10 @@ func (v *Validator) ParseMessages(data []byte) ([]a2ui.AgentMessage, error) {
 }
 
 // ValidateMessages validates a batch of A2UI messages.
+// Components may refer to components in earlier messages of the batch.
+// If the catalog declares allowedParents or allowedChildren for a
+// component type, ValidateMessages checks each surface's component tree
+// against them.
 // A validation failure is reported as a *[ValidationError].
 func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 	if len(msgs) == 0 {
@@ -86,6 +124,22 @@ func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 	// if they remain unresolved after the last message.
 	surfaceComponents := make(map[string]map[string]bool)
 	pending := make(map[string][]componentRef)
+	trees := make(map[string]map[string]placedComponent)
+	place := func(surfaceID, path string, components []a2ui.Component) error {
+		if v.allowedParents == nil && v.allowedChildren == nil {
+			return nil
+		}
+		tree := trees[surfaceID]
+		if tree == nil {
+			tree = make(map[string]placedComponent)
+			trees[surfaceID] = tree
+		}
+		for j, c := range components {
+			p := path + pointer(j)
+			tree[c.ID] = placedComponent{typ: c.ComponentType(), path: p, refs: at(componentRefs(c), p)}
+		}
+		return v.validateComposition(surfaceID, tree)
+	}
 	for i, msg := range msgs {
 		if err := v.validateMessage(msg); err != nil {
 			return within(err, pointer(i), fmt.Sprintf("message[%d]", i))
@@ -106,6 +160,10 @@ func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 				}
 				pending[id] = at(refs, pointer(i, "createSurface", "components"))
 			}
+			delete(trees, id)
+			if err := place(id, pointer(i, "createSurface", "components"), msg.CreateSurface.Components); err != nil {
+				return err
+			}
 		case msg.UpdateComponents != nil:
 			id := msg.UpdateComponents.SurfaceID
 			known := surfaceComponents[id]
@@ -122,9 +180,13 @@ func (v *Validator) ValidateMessages(msgs []a2ui.AgentMessage) error {
 			}
 			refs = at(refs, pointer(i, "updateComponents", "components"))
 			pending[id] = slices.DeleteFunc(append(pending[id], refs...), func(r componentRef) bool { return known[r.to] })
+			if err := place(id, pointer(i, "updateComponents", "components"), msg.UpdateComponents.Components); err != nil {
+				return err
+			}
 		case msg.DeleteSurface != nil:
 			delete(surfaceComponents, msg.DeleteSurface.SurfaceID)
 			delete(pending, msg.DeleteSurface.SurfaceID)
+			delete(trees, msg.DeleteSurface.SurfaceID)
 		case msg.UpdateDataModel != nil:
 			if err := validatePath(msg.UpdateDataModel.Path, true); err != nil {
 				return within(err, pointer(i, "updateDataModel", "path"), fmt.Sprintf("message[%d]: updateDataModel.path", i))
@@ -152,6 +214,52 @@ func at(refs []componentRef, path string) []componentRef {
 		refs[i].path = path + refs[i].path
 	}
 	return refs
+}
+
+// A placedComponent is a component of a surface, as far as composition
+// validation needs it.
+type placedComponent struct {
+	typ  string
+	path string         // JSON pointer of the component
+	refs []componentRef // references to children
+}
+
+// surfaceType is the reserved component type of the implicit container
+// of a surface, the parent of the component with id "root".
+const surfaceType = "Surface"
+
+// validateComposition checks the parent-child relationships in the
+// component tree of a surface against the allowedParents and
+// allowedChildren constraints of the catalog. Relationships with a
+// component that has not arrived yet are checked when it arrives.
+//
+// As the A2UI v1.0 protocol specification says in "Composition
+// validation rules" (specification/v1_0/docs/a2ui_protocol.md), an
+// omitted allowedParents or allowedChildren allows every component
+// type, and the reserved "Surface" type is the parent of the root
+// component. An empty list allows none.
+func (v *Validator) validateComposition(surfaceID string, tree map[string]placedComponent) error {
+	if root, ok := tree["root"]; ok {
+		if allowed, ok := v.allowedParents[root.typ]; ok && !slices.Contains(allowed, surfaceType) {
+			return invalid(ErrNotAllowed, root.path, fmt.Sprintf("surface %q: component %q (%s) is not allowed at the surface root; allowedParents is %v", surfaceID, "root", root.typ, allowed))
+		}
+	}
+	for _, id := range slices.Sorted(maps.Keys(tree)) {
+		parent := tree[id]
+		for _, ref := range parent.refs {
+			child, ok := tree[ref.to]
+			if !ok {
+				continue
+			}
+			if allowed, ok := v.allowedParents[child.typ]; ok && !slices.Contains(allowed, parent.typ) {
+				return invalid(ErrNotAllowed, ref.path, fmt.Sprintf("surface %q: component %q (%s) is not allowed in component %q (%s); allowedParents is %v", surfaceID, ref.to, child.typ, id, parent.typ, allowed))
+			}
+			if allowed, ok := v.allowedChildren[parent.typ]; ok && !slices.Contains(allowed, child.typ) {
+				return invalid(ErrNotAllowed, ref.path, fmt.Sprintf("surface %q: component %q (%s) does not allow child %q (%s); allowedChildren is %v", surfaceID, id, parent.typ, ref.to, child.typ, allowed))
+			}
+		}
+	}
+	return nil
 }
 
 func (v *Validator) validateMessage(msg a2ui.AgentMessage) error {
