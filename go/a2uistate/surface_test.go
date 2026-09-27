@@ -271,3 +271,20 @@ func TestSurfaceCreateFailureLeavesState(t *testing.T) {
 		t.Errorf("createSurface after failed createSurface: %v", err)
 	}
 }
+
+func TestSurfacesDeleteRetained(t *testing.T) {
+	var ss Surfaces
+	if err := ss.Apply(create("s", text("root", "r"))); err != nil {
+		t.Fatal(err)
+	}
+	s, _ := ss.Surface("s")
+	if err := ss.Apply(del("s")); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := ss.Surface("s"); ok {
+		t.Error("deleted surface still in the set")
+	}
+	if got, want := state(s), `||{}|deleted`; got != want {
+		t.Errorf("retained surface state = %s, want %s", got, want)
+	}
+}

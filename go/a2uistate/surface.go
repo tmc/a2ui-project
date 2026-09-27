@@ -175,8 +175,8 @@ func (ss *Surfaces) Add(s *Surface) {
 
 // Apply applies each of msgs to the surface it addresses, as
 // [Surface.Apply] does. A createSurface message adds a surface, and it
-// is an error if the surface exists. A deleteSurface message removes
-// the surface. It is an error for any other message to address a
+// is an error if the surface exists. A deleteSurface message deletes
+// the surface, as [Surface.Apply] does, and removes it from ss. It is an error for any other message to address a
 // surface that does not exist, or not to address a surface at all.
 // Apply stops at the first error; the messages before it stay applied.
 func (ss *Surfaces) Apply(msgs ...a2ui.AgentMessage) error {
@@ -208,6 +208,9 @@ func (ss *Surfaces) apply(msg a2ui.AgentMessage) error {
 	case !ok:
 		return fmt.Errorf("a2uistate: %s for unknown surface %q", kind, id)
 	case msg.DeleteSurface != nil:
+		if err := s.Apply(msg); err != nil {
+			return err
+		}
 		delete(ss.m, id)
 		return nil
 	}
